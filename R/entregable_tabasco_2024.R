@@ -10,17 +10,17 @@ source(file = "R/funciones.R")
 
 # Insumos -----------------------------------------------------------------
 
-id_bd_presi <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit?usp=share_link"
-dir_presi <-  "./presidenciables_2024/bd_presidenciables_2024.xlsx"
-archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_presi), path = dir_presi, overwrite = TRUE)
+id_bd_base <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=185019574"
+dir_base <-  "./chiapas_2024/bd_guanajuato_2024.xlsx"
+archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_base), path = dir_base, overwrite = TRUE)
 2
-bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_presi, sheet = 1, cols = seq.int(1:17)) |> 
+bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_base, sheet = "Tabasco", cols = seq.int(1:27)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |> 
   mutate(numero_de_entrevistas = as.integer(numero_de_entrevistas),
          intencion_de_voto_por_candidato_bruta = as.double(intencion_de_voto_por_candidato_bruta),
-         calidad = "general") |>
-  rename(metodologia = tipo_de_levantamiento,
+         calidad = "general") |> 
+  rename(metodologia = levantamiento,
          error = error_muestral,
          fechaPublicacion = fecha_de_publicacion,
          fechaInicio = inicio,
@@ -29,32 +29,35 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_presi, sheet = 1, cols = seq
 
 # Preparar base -----------------------------------------------------------
 
-bd_preparada <- bd_encuestas_raw |>
-  filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
+bd_preparada <- bd_encuestas_raw |> 
+  filter(tipo_de_pregunta == "Intención de voto por partido") |> 
   transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
-            resultado = intencion_de_voto_por_candidato_bruta,
-            candidato = candidato_modelo, careo, metodologia, calidad,
+            resultado = intencion_de_voto_por_partido_bruta,
+            candidato = partido_o_alianza,
+            careo, 
+            metodologia = stringi::stri_trans_general(metodologia, "Latin-ASCII"), 
+            calidad,
             total_de_entrevistas = numeroEntrevistas,
             error) |> 
   group_by(casa_encuestadora, fechaInicio, fechaFin, error, total_de_entrevistas, metodologia, careo) %>%
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("Claudia Sheinbaum", "Samuel García", "Xóchitl Gálvez") %in% candidato),
-                                    true = T,
-                                    false = F)) |> 
+  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD", "MC") %in% candidato),
+                                     true = T,
+                                     false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Eduardo Verástegui", "Ninguno", "No irá a votar", "Es secreto"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("FUTURO JALISCO", "OTRO"),
                                     true = "Otro",
                                     false = candidato),
-         candidato = dplyr::if_else(condition = candidato %in% c("No sabe"),
+         candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
-  mutate(colorHex = case_when(candidato == "Claudia Sheinbaum" ~ color_sheinbaum,
-                              candidato == "Xóchitl Gálvez" ~ color_pan,
-                              candidato == "Samuel García" ~ color_mc,
+  mutate(colorHex = case_when(candidato == "MORENA_PT_PVEM" ~ color_sheinbaum,
+                              candidato == "PAN_PRI_PRD" ~ color_pan,
+                              candidato == "MC" ~ color_mc,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
@@ -63,7 +66,11 @@ bd_preparada <- bd_encuestas_raw |>
   relocate(resultado, .before = candidato) |> 
   select(!careo) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
-  filter(!dias_levantamiento <= 0)
+  mutate(fechaInicio = dplyr::if_else(condition = dias_levantamiento == 0,
+                                      true = fechaInicio - lubridate::ddays(1),
+                                      false = fechaInicio)) |> 
+  mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
+  filter(!dias_levantamiento <= 0) 
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
@@ -84,11 +91,11 @@ bd_preparada %>%
 bd_preparada %>% naniar::vis_miss()
 bd_preparada %>% 
   count(metodologia, calidad) %>% 
-  mutate(n=n/5) %>% 
+  mutate(n=n/4) %>% 
   arrange(desc(calidad))
 bd_preparada %>% 
   count(metodologia, calidad) %>% 
-  mutate(n=n/5) %>%
+  mutate(n=n/4) %>%
   group_by(calidad) %>% 
   summarise(tot = sum(n))
 bd_preparada %>%
@@ -115,7 +122,7 @@ source(file = "R/modelo.R")
 
 fecha_estimacion <- lubridate::today()
 
-modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato) |> filter(!idIntencionVoto %in% c(5)), fechaFin = fecha_estimacion)
+modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato), fechaFin = fecha_estimacion)
 
 modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos)
 
@@ -137,31 +144,31 @@ tabla_encuestas <- bd_preparada %>%
   select(!c(idIntencionVoto, fecha)) %>%
   janitor::clean_names() %>%
   arrange(fecha_fin) %>%
-  mutate(diferencia = claudia_sheinbaum - xochitl_galvez,
+  mutate(diferencia = morena_pt_pvem - pan_pri_prd,
          fecha_fin = format(fecha_fin, "%d-%b-%y"),
          numero_entrevistas = scales::comma(numero_entrevistas),
          error = as.double(error),
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = .1)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia)) %>%
   relocate(casa_encuestadora,
-           claudia_sheinbaum,
-           xochitl_galvez,
+           morena_pt_pvem,
+           pan_pri_prd,
            diferencia,
-           samuel_garcia,
+           mc,
            ns_nc,
-           otro,
+           # otro,
            fecha_fin,
            numero_entrevistas,
            error,
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "Claudia\nSheinbaum" = claudia_sheinbaum,
-         "Xóchitl\nGálvez" = xochitl_galvez,
+         "MORENA\n-PT-PVEM" = morena_pt_pvem,
+         "PAN-PRI-PRD" = pan_pri_prd,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Samuel\nGarcía" = samuel_garcia,
+         "Movimiento\nciudadano" = mc,
          "Ns/Nc" = ns_nc,
-         "Otro" = otro, 
+         # "Otro" = otro, 
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
@@ -184,31 +191,31 @@ resultado_gppolls <- modelo_resultado[[1]] %>%
   pivot_wider(names_from = candidato, values_from = media) %>%
   janitor::clean_names() %>%
   mutate(across(where(is.numeric), ~ round(.x, digits = 0)),
-         diferencia = claudia_sheinbaum - xochitl_galvez,
+         diferencia = morena_pt_pvem - pan_pri_prd,
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = 1.)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia))
 
 tabla_resultadoGppolls <- resultado_gppolls %>%
   bind_cols(dummy_tb) %>%
   relocate(casa_encuestadora,
-           claudia_sheinbaum,
-           xochitl_galvez,
+           morena_pt_pvem,
+           pan_pri_prd,
            diferencia,
-           samuel_garcia,
+           mc,
            ns_nc,
-           otro,
+           # otro,
            fecha_fin,
            numero_entrevistas,
            error,
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "Claudia\nSheinbaum" = claudia_sheinbaum,
-         "Xóchitl\nGálvez" = xochitl_galvez,
+         "MORENA\n-PT-PVEM" = morena_pt_pvem,
+         "PAN-PRI-PRD" = pan_pri_prd,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Samuel\nGarcía" = samuel_garcia,
+         "Movimiento\nciudadano" = mc,
          "Ns/Nc" = ns_nc,
-         "Otro" = otro, 
+         # "Otro" = otro, 
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
@@ -260,7 +267,7 @@ tabla_completa_anexos %>%
                  ph_with(value = .x %>% select(!c(sep, id)) %>%
                            flextable(cwidth = 2, cheight = 1) %>%
                            theme_vanilla() %>%
-                           color(j = c(1:4, 6:12), color = color_morena, part = "header") %>%
+                           color(j = c(1:4, 6:11), color = color_morena, part = "header") %>%
                            bold(j = c("Diferencia\nventaja\n(puntos)"), bold = TRUE, part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "header") %>%
@@ -271,6 +278,6 @@ tabla_completa_anexos %>%
                            align(align = "center", part = "body") %>%
                            autofit(), location = ph_location_label(ph_label = "tabla")))
 
-pptx_path <- paste("Entregable/GPPOLLS_", format(lubridate::today(), "%d%B"), ".pptx", sep = "")
+pptx_path <- paste("Entregable/GPPOLLS_tabasco_", format(lubridate::today(), "%d%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()
