@@ -4,6 +4,8 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(rjags)
+library(officer)
+library(flextable)
 
 source(file = "R/parametros.R")
 source(file = "R/funciones.R")
@@ -30,12 +32,12 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "CDMX", 
 
 # Preparar base -----------------------------------------------------------
 
-bd_preparada <- bd_encuestas_raw |>
-  filter(tipo_de_pregunta == "Intención de voto por partido") |> 
+bd_preparada <- bd_encuestas_raw |> 
+  filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
   transmute(id, casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
-            resultado = intencion_de_voto_por_partido_bruta,
-            candidato = partido_o_alianza,
+            resultado = as.double(intencion_de_voto_por_candidato_bruta),
+            candidato = candidato_modelo,
             careo, metodologia, calidad,
             total_de_entrevistas = numeroEntrevistas,
             error) |> 
@@ -43,26 +45,23 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA", "PAN", "PRI", "PRD", "MC") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("Clara Brugada", "Santiago Taboada") %in% candidato),
                                      true = T,
-                                     false = F)) |> 
-  ungroup() |> 
-  filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("PT", "PVEM", "Otros", "Ninguno", "Otro"),
+                                     false = F)) |>
+  ungroup() |>
+  filter(trackeable == T) |>
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Otro", "Ninguno"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
-  mutate(colorHex = case_when(candidato == "MORENA" ~ color_morena,
-                              candidato == "PAN" ~ color_pan,
-                              candidato == "PRI" ~ color_pri,
-                              candidato == "PRD" ~ color_prd,
-                              candidato == "MC" ~ color_mc,
+  mutate(colorHex = case_when(candidato == "Clara Brugada" ~ color_morena,
+                              candidato == "Santiago Taboada" ~ color_pan,
+                              candidato == "Salomón Chertorivski" ~ color_mc,
                               candidato == "Otro" ~ color_otro,
-                              candidato == "Ns/Nc" ~ color_nsnc)) |> 
+                              candidato == "Ns/Nc" ~ color_nsnc)) |>
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
-  mutate(resultado = as.double(resultado)) |> 
   group_by(casa_encuestadora, idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion, numeroEntrevistas, candidato, metodologia, careo, calidad, total_de_entrevistas, error, colorHex) |> 
   summarise(resultado = sum(resultado), .groups = "drop") |> 
   relocate(resultado, .before = candidato) |> 
@@ -94,15 +93,6 @@ bd_preparada %>%
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
 bd_preparada %>% naniar::vis_miss()
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>% 
-  arrange(desc(calidad))
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n))
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
   filter_at(vars(contains("fecha")), any_vars(. > lubridate::today()))
@@ -149,19 +139,17 @@ tabla_encuestas <- bd_preparada %>%
   select(!c(idIntencionVoto, fecha)) %>%
   janitor::clean_names() %>%
   arrange(fecha_fin) %>%
-  mutate(diferencia = morena - pan,
+  mutate(diferencia = clara_brugada - santiago_taboada,
          fecha_fin = format(fecha_fin, "%d-%b-%y"),
          numero_entrevistas = scales::comma(numero_entrevistas),
          error = as.double(error),
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = .1)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia)) %>% 
   relocate(casa_encuestadora,
-           morena,
-           pan,
+           clara_brugada,
+           santiago_taboada,
            diferencia,
-           pri,
-           prd,
-           mc,
+           salomon_chertorivski,
            ns_nc,
            otro,
            fecha_fin,
@@ -170,11 +158,10 @@ tabla_encuestas <- bd_preparada %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "MORENA" = morena,
-         "PAN" = pan,
+         "Clara\nBrugada" = clara_brugada,
+         "Santiago\nTaboada" = santiago_taboada,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "PRI" = pri,
-         "MC" = mc,
+         "Salomón\nChertorivski" = salomon_chertorivski,
          "Ns/Nc" = ns_nc,
          "Otro" = otro, 
          "Fecha de\ntérmino" = fecha_fin,
@@ -199,19 +186,17 @@ resultado_gppolls <- modelo_resultado[[1]] %>%
   pivot_wider(names_from = candidato, values_from = media) %>%
   janitor::clean_names() %>%
   mutate(across(where(is.numeric), ~ round(.x, digits = 0)),
-         diferencia = morena - pan,
+         diferencia = clara_brugada - santiago_taboada,
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = 1.)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia))
 
 tabla_resultadoGppolls <- resultado_gppolls %>%
   bind_cols(dummy_tb) %>%
   relocate(casa_encuestadora,
-           morena,
-           pan,
+           clara_brugada,
+           santiago_taboada,
            diferencia,
-           pri,
-           prd,
-           mc,
+           salomon_chertorivski,
            ns_nc,
            otro,
            fecha_fin,
@@ -220,11 +205,10 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "MORENA" = morena,
-         "PAN" = pan,
+         "Clara\nBrugada" = clara_brugada,
+         "Santiago\nTaboada" = santiago_taboada,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "PRI" = pri,
-         "MC" = mc,
+         "Salomón\nChertorivski" = salomon_chertorivski,
          "Ns/Nc" = ns_nc,
          "Otro" = otro, 
          "Fecha de\ntérmino" = fecha_fin,
@@ -254,9 +238,6 @@ ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 
 # Exportar ----------------------------------------------------------------
 
-library(officer)
-library(flextable)
-
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
 add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
@@ -274,7 +255,7 @@ tabla_completa_anexos %>%
                  ph_with(value = .x %>% select(!c(sep, id)) %>%
                            flextable(cwidth = 2, cheight = 1) %>%
                            theme_vanilla() %>%
-                           color(j = c(1:4, 6:14), color = color_morena, part = "header") %>%
+                           color(j = c(1:4, 6:12), color = color_morena, part = "header") %>%
                            bold(j = c("Diferencia\nventaja\n(puntos)"), bold = TRUE, part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "header") %>%
@@ -291,6 +272,6 @@ folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
 
 dir.create(folder_path)
 
-pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_cdmx_%d_%B"), ".pptx", sep = "")
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_cdmx_candidatos_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()
