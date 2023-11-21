@@ -10,11 +10,11 @@ source(file = "R/funciones.R")
 
 # Insumos -----------------------------------------------------------------
 
-id_bd_presi <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=0"
-dir_presi <-  "./presidenciables_2024/bd_presidenciables_2024.xlsx"
-archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_presi), path = dir_presi, overwrite = TRUE)
+id_bd_gppolls <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=0"
+dir_bd_gppolls <-  "Insumos/bd_gppolls.xlsx"
+archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_gppolls), path = dir_bd_gppolls, overwrite = TRUE)
 2
-bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_presi, sheet = 1, cols = seq.int(1:17)) |> 
+bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Presidencia", cols = seq.int(1:17)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |> 
   mutate(numero_de_entrevistas = as.integer(numero_de_entrevistas),
@@ -25,13 +25,14 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_presi, sheet = 1, cols = seq
          fechaPublicacion = fecha_de_publicacion,
          fechaInicio = inicio,
          fechaFin = final,
-         numeroEntrevistas = numero_de_entrevistas) 
+         numeroEntrevistas = numero_de_entrevistas) |> 
+  filter(!is.na(id))
 
 # Preparar base -----------------------------------------------------------
 
 bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
-  transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
+  transmute(id, casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
             resultado = intencion_de_voto_por_candidato_bruta,
             candidato = candidato_modelo, careo, metodologia, calidad,
@@ -46,7 +47,7 @@ bd_preparada <- bd_encuestas_raw |>
                                     false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Eduardo Verástegui", "Ninguno", "No irá a votar", "Es secreto"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Eduardo Verástegui", "Independiente", "Ninguno", "No irá a votar", "Es secreto", "Dante Delgado", "NE", "Beatriz Paredes"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe"),
@@ -58,12 +59,14 @@ bd_preparada <- bd_encuestas_raw |>
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
+  mutate(resultado = as.double(resultado)) |> 
   group_by(casa_encuestadora, idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion, numeroEntrevistas, candidato, metodologia, careo, calidad, total_de_entrevistas, error, colorHex) |> 
   summarise(resultado = sum(resultado), .groups = "drop") |> 
   relocate(resultado, .before = candidato) |> 
   select(!careo) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
-  filter(!dias_levantamiento <= 0)
+  filter(!dias_levantamiento <= 0) |> 
+  filter(!idIntencionVoto %in% c(11, 14, 17, 18))
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
@@ -82,15 +85,6 @@ bd_preparada %>%
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
 bd_preparada %>% naniar::vis_miss()
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/5) %>% 
-  arrange(desc(calidad))
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/5) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n))
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
   filter_at(vars(contains("fecha")), any_vars(. > lubridate::today()))
@@ -115,7 +109,7 @@ source(file = "R/modelo.R")
 
 fecha_estimacion <- lubridate::today()
 
-modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato) |> filter(!idIntencionVoto %in% c(5)), fechaFin = fecha_estimacion)
+modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato), fechaFin = fecha_estimacion)
 
 modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos)
 
@@ -229,12 +223,8 @@ tabla_completa_anexos <- tibble::tibble(tabla_completa) %>%
   split(.$sep)
 
 tot_encuestas <- bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/5) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n)) %>%
-  summarise(tot = sum(tot)) %>% 
-  pull(tot)
+  distinct(idIntencionVoto) |> 
+  nrow()
 
 ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 
@@ -271,6 +261,12 @@ tabla_completa_anexos %>%
                            align(align = "center", part = "body") %>%
                            autofit(), location = ph_location_label(ph_label = "tabla")))
 
-pptx_path <- paste("Entregable/GPPOLLS_", format(lubridate::today(), "%d%B"), ".pptx", sep = "")
+dia_reporte <- format(lubridate::today(), format = "%B_%d")
+
+folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
+
+dir.create(folder_path)
+
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_presidenciables_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()

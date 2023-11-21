@@ -10,11 +10,11 @@ source(file = "R/funciones.R")
 
 # Insumos -----------------------------------------------------------------
 
-id_bd_base <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=185019574"
-dir_base <-  "./chiapas_2024/bd_guanajuato_2024.xlsx"
-archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_base), path = dir_base, overwrite = TRUE)
+id_bd_gppolls <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=0"
+dir_bd_gppolls <-  "Insumos/bd_gppolls.xlsx"
+archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_gppolls), path = dir_bd_gppolls, overwrite = TRUE)
 2
-bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_base, sheet = "Tabasco", cols = seq.int(1:27)) |> 
+bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Tabasco", cols = seq.int(1:27)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |> 
   mutate(numero_de_entrevistas = as.integer(numero_de_entrevistas),
@@ -33,7 +33,7 @@ bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por partido") |> 
   transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
-            resultado = intencion_de_voto_por_partido_bruta,
+            resultado = as.double(intencion_de_voto_por_partido_bruta),
             candidato = partido_o_alianza,
             careo, 
             metodologia = stringi::stri_trans_general(metodologia, "Latin-ASCII"), 
@@ -89,15 +89,6 @@ bd_preparada %>%
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
 bd_preparada %>% naniar::vis_miss()
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>% 
-  arrange(desc(calidad))
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n))
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
   filter_at(vars(contains("fecha")), any_vars(. > lubridate::today()))
@@ -236,12 +227,8 @@ tabla_completa_anexos <- tibble::tibble(tabla_completa) %>%
   split(.$sep)
 
 tot_encuestas <- bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/5) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n)) %>%
-  summarise(tot = sum(tot)) %>% 
-  pull(tot)
+  distinct(idIntencionVoto) |> 
+  nrow()
 
 ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 
@@ -253,7 +240,7 @@ library(flextable)
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
 add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
-  ph_with(value = "ENCUESTAS PRESIDENCIA 2024", location = ph_location_label(ph_label = "titulo")) %>%
+  ph_with(value = "ENCUESTAS TABASCO 2024", location = ph_location_label(ph_label = "titulo")) %>%
   ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
@@ -278,6 +265,12 @@ tabla_completa_anexos %>%
                            align(align = "center", part = "body") %>%
                            autofit(), location = ph_location_label(ph_label = "tabla")))
 
-pptx_path <- paste("Entregable/GPPOLLS_tabasco_", format(lubridate::today(), "%d%B"), ".pptx", sep = "")
+dia_reporte <- format(lubridate::today(), format = "%B_%d")
+
+folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
+
+dir.create(folder_path)
+
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_tabasco_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()

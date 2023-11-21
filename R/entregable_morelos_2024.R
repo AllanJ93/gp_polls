@@ -10,11 +10,11 @@ source(file = "R/funciones.R")
 
 # Insumos -----------------------------------------------------------------
 
-id_bd_base <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=1157578781"
-dir_base <-  "./chiapas_2024/bd_guanajuato_2024.xlsx"
-archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_base), path = dir_base, overwrite = TRUE)
+id_bd_gppolls <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=0"
+dir_bd_gppolls <-  "Insumos/bd_gppolls.xlsx"
+archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_gppolls), path = dir_bd_gppolls, overwrite = TRUE)
 2
-bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_base, sheet = "Morelos", cols = seq.int(1:27)) |> 
+bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Morelos", cols = seq.int(1:27)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |>
   mutate(numero_de_entrevistas = as.integer(numero_de_entrevistas),
@@ -25,7 +25,8 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_base, sheet = "Morelos", col
          fechaPublicacion = fecha_de_publicacion,
          fechaInicio = inicio,
          fechaFin = final,
-         numeroEntrevistas = numero_de_entrevistas) 
+         numeroEntrevistas = numero_de_entrevistas) |> 
+  filter(!is.na(id))
 
 # Preparar base -----------------------------------------------------------
 
@@ -44,7 +45,7 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD", "MC") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
@@ -59,8 +60,10 @@ bd_preparada <- bd_encuestas_raw |>
                               candidato == "PAN_PRI_PRD" ~ color_pan,
                               candidato == "MC" ~ color_mc,
                               candidato == "Otro" ~ color_otro,
+                              candidato == "Otros" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
+  mutate(resultado = as.double(resultado)) |> 
   group_by(casa_encuestadora, idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion, numeroEntrevistas, candidato, metodologia, careo, calidad, total_de_entrevistas, error, colorHex) |> 
   summarise(resultado = sum(resultado), .groups = "drop") |> 
   relocate(resultado, .before = candidato) |> 
@@ -89,15 +92,6 @@ bd_preparada %>%
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
 bd_preparada %>% naniar::vis_miss()
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>% 
-  arrange(desc(calidad))
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n))
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
   filter_at(vars(contains("fecha")), any_vars(. > lubridate::today()))
@@ -125,12 +119,6 @@ fecha_estimacion <- lubridate::today()
 modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato), fechaFin = fecha_estimacion)
 
 modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos)
-
-# graficar_comparativa_ivoto(bd = mod_presidenciables_candidato[[1]])
-# 
-# bd_prob_triunfo <- obtener_prob_triunfo(modelo_resultados = mod_presidenciables_candidato[[2]], fecha = fecha_estimacion)
-# 
-# prob_triunfo_graf <- graficar_prob_triunfo(bd = bd_prob_triunfo)
 
 tabla_encuestas <- bd_preparada %>% 
   select(casa_encuestadora, idIntencionVoto) %>%
@@ -168,7 +156,7 @@ tabla_encuestas <- bd_preparada %>%
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Movimiento\nciudadano" = mc,
          "Ns/Nc" = ns_nc,
-         # "Otro" = otro, 
+         # "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
@@ -215,7 +203,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Movimiento\nciudadano" = mc,
          "Ns/Nc" = ns_nc,
-         # "Otro" = otro, 
+         # "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
@@ -224,7 +212,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
 
 tabla_completa <- tabla_encuestas |> 
   bind_rows(tabla_resultadoGppolls) |> 
-  select(!Calidad) |> 
+  select(!c(Calidad, otros)) |> 
   tibble::rownames_to_column(var = "N°") %>%
   mutate(`N°` = case_when(`Casa Encuestadora` == "RESULTADO GPPOLLS" ~ "", T ~ `N°`))
 
@@ -236,12 +224,8 @@ tabla_completa_anexos <- tibble::tibble(tabla_completa) %>%
   split(.$sep)
 
 tot_encuestas <- bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/5) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n)) %>%
-  summarise(tot = sum(tot)) %>% 
-  pull(tot)
+  distinct(idIntencionVoto) |> 
+  nrow()
 
 ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 
@@ -253,7 +237,7 @@ library(flextable)
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
 add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
-  ph_with(value = "ENCUESTAS PRESIDENCIA 2024", location = ph_location_label(ph_label = "titulo")) %>%
+  ph_with(value = "ENCUESTAS MORELOS 2024", location = ph_location_label(ph_label = "titulo")) %>%
   ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
@@ -278,6 +262,12 @@ tabla_completa_anexos %>%
                            align(align = "center", part = "body") %>%
                            autofit(), location = ph_location_label(ph_label = "tabla")))
 
-pptx_path <- paste("Entregable/GPPOLLS_morelos_", format(lubridate::today(), "%d%B"), ".pptx", sep = "")
+dia_reporte <- format(lubridate::today(), format = "%B_%d")
+
+folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
+
+dir.create(folder_path)
+
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_morelos_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()

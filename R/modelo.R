@@ -75,8 +75,9 @@ preparar_datos <- function(bd, fechaFin){
 
   y <- bd_y %>% select(starts_with("can_")) %>%
     mutate(
-      across(everything(), ~ tidyr::replace_na(as.numeric(.x), replace = round(mean(.x,na.rm = T), digits = 1)) %>% as.numeric(.x))
-    ) #%>% rowwise() %>% mutate(can_OTRO = 100 - sum(c_across(starts_with("can_")))) %>% filter(across(everything(), ~ .x > 0))
+      across(everything(), ~ tidyr::replace_na(as.numeric(.x), replace = round(mean(.x, na.rm = T), digits = 1)) %>% as.numeric(.x)),
+      across(.cols = everything(), .fns =  ~ dplyr::if_else(condition = .x == 0, true = 0.1, false = .x))
+    ) 
 
   # mutate(can_OTRO = if_else(condition = can_OTRO <= 0, true = 0.001, false = can_OTRO))
 

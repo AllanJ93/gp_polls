@@ -10,11 +10,11 @@ source(file = "R/funciones.R")
 
 # Insumos -----------------------------------------------------------------
 
-id_bd_base <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=672187712"
-dir_base <-  "Insumos/bd_veracruz_2024.xlsx"
-archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_base), path = dir_base, overwrite = TRUE)
+id_bd_gppolls <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=0"
+dir_bd_gppolls <-  "Insumos/bd_gppolls.xlsx"
+archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_gppolls), path = dir_bd_gppolls, overwrite = TRUE)
 2
-bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_base, sheet = "Veracruz", cols = seq.int(1:27)) |> 
+bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Veracruz", cols = seq.int(1:27)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |> 
   mutate(numero_de_entrevistas = as.integer(numero_de_entrevistas),
@@ -33,7 +33,7 @@ bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por partido") |> 
   transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
-            resultado = intencion_de_voto_por_partido_bruta,
+            resultado = as.double(intencion_de_voto_por_partido_bruta),
             candidato = partido_o_alianza,
             careo, 
             metodologia = stringi::stri_trans_general(metodologia, "Latin-ASCII"), 
@@ -44,12 +44,12 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD", "MC") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Ninguno", "Otro"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Ninguno", "Otro", "MC"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
@@ -74,9 +74,12 @@ bd_preparada <- bd_encuestas_raw |>
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
-  pivot_wider(c(idIntencionVoto, fecha), names_from = candidato, values_from = resultado) %>%
-  pivot_longer(-c(idIntencionVoto, fecha),names_to = "candidato", values_to = "resultado") %>%
-  left_join(bd_preparada %>% select(idIntencionVoto, candidato, color = colorHex), by = c("idIntencionVoto", "candidato")) %>%
+  pivot_wider(id_cols = c(idIntencionVoto, fecha), names_from = candidato, values_from = resultado) %>%
+  mutate(across(.cols = !c(idIntencionVoto, fecha), .fns = ~ dplyr::if_else(condition = is.na(.x) ,
+                                                                            true = 0.0,
+                                                                            false = .x))) |> 
+  pivot_longer(cols = -c(idIntencionVoto, fecha),names_to = "candidato", values_to = "resultado") %>%
+  left_join(bd_preparada %>% distinct(candidato, color = colorHex), by = c("candidato")) %>%
   left_join(bd_preparada %>% distinct(idIntencionVoto, calidad), by = "idIntencionVoto")
 
 # Pruebas -----------------------------------------------------------------
@@ -89,15 +92,6 @@ bd_preparada %>%
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
 bd_preparada %>% naniar::vis_miss()
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>% 
-  arrange(desc(calidad))
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n))
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
   filter_at(vars(contains("fecha")), any_vars(. > lubridate::today()))
@@ -154,9 +148,9 @@ tabla_encuestas <- bd_preparada %>%
            morena_pt_pvem,
            pan_pri_prd,
            diferencia,
-           mc,
+           # mc,
            ns_nc,
-           # otro,
+           otro,
            fecha_fin,
            numero_entrevistas,
            error,
@@ -166,9 +160,9 @@ tabla_encuestas <- bd_preparada %>%
          "MORENA\n-PT-PVEM" = morena_pt_pvem,
          "PAN-PRI-PRD" = pan_pri_prd,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Movimiento\nciudadano" = mc,
+         # "Movimiento\nciudadano" = mc,
          "Ns/Nc" = ns_nc,
-         # "Otro" = otro, 
+         "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
@@ -201,9 +195,9 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            morena_pt_pvem,
            pan_pri_prd,
            diferencia,
-           mc,
+           # mc,
            ns_nc,
-           # otro,
+           otro,
            fecha_fin,
            numero_entrevistas,
            error,
@@ -213,9 +207,9 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
          "MORENA\n-PT-PVEM" = morena_pt_pvem,
          "PAN-PRI-PRD" = pan_pri_prd,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Movimiento\nciudadano" = mc,
+         # "Movimiento\nciudadano" = mc,
          "Ns/Nc" = ns_nc,
-         # "Otro" = otro, 
+         "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
@@ -236,12 +230,8 @@ tabla_completa_anexos <- tibble::tibble(tabla_completa) %>%
   split(.$sep)
 
 tot_encuestas <- bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/5) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n)) %>%
-  summarise(tot = sum(tot)) %>% 
-  pull(tot)
+  distinct(idIntencionVoto) |> 
+  nrow()
 
 ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 
@@ -253,7 +243,7 @@ library(flextable)
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
 add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
-  ph_with(value = "ENCUESTAS PRESIDENCIA 2024", location = ph_location_label(ph_label = "titulo")) %>%
+  ph_with(value = "ENCUESTAS VERACRUZ 2024", location = ph_location_label(ph_label = "titulo")) %>%
   ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
@@ -278,6 +268,12 @@ tabla_completa_anexos %>%
                            align(align = "center", part = "body") %>%
                            autofit(), location = ph_location_label(ph_label = "tabla")))
 
-pptx_path <- paste("Entregable/GPPOLLS_veracruz_", format(lubridate::today(), "%d%B"), ".pptx", sep = "")
+dia_reporte <- format(lubridate::today(), format = "%B_%d")
+
+folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
+
+dir.create(folder_path)
+
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_veracruz_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()

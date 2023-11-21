@@ -18,6 +18,7 @@ color_mc <- "#F27405"
 color_pvem <- "#98BF5E"
 color_pan <- "#0339a6"
 color_prd <- "#F2B705"
+color_pes <- "#5c247c"
 
 # Presidencia -------------------------------------------------------------
 
