@@ -51,22 +51,23 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("Claudia Delgadillo") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("Claudia Delgadillo", "Alfonso Petersen", "Pablo Lemus") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Alfonso Petersen", "Pablo Lemus"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Mara Robles"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
   mutate(colorHex = case_when(candidato == "Claudia Delgadillo" ~ color_sheinbaum,
+                              candidato == "Alfonso Petersen" ~ color_pan,
+                              candidato == "Pablo Lemus" ~ color_mc,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
-  mutate(resultado = as.double(resultado)) |> 
   group_by(casa_encuestadora, idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion, numeroEntrevistas, candidato, metodologia, careo, calidad, total_de_entrevistas, error, colorHex) |> 
   summarise(resultado = sum(resultado), .groups = "drop") |> 
   relocate(resultado, .before = candidato) |> 
@@ -76,14 +77,16 @@ bd_preparada <- bd_encuestas_raw |>
                                       true = fechaInicio - lubridate::ddays(1),
                                       false = fechaInicio)) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
-  filter(!dias_levantamiento <= 0) |> 
-  filter(!idIntencionVoto %in% c(4, 17))
+  filter(!dias_levantamiento <= 0)
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
-  pivot_wider(c(idIntencionVoto, fecha), names_from = candidato, values_from = resultado) %>%
+  pivot_wider(id_cols = c(idIntencionVoto, fecha), names_from = candidato, values_from = resultado) %>%
+  mutate(across(.cols = !c(idIntencionVoto, fecha), .fns = ~ dplyr::if_else(condition = is.na(.x) ,
+                                                                            true = 0.0,
+                                                                            false = .x))) |> 
   pivot_longer(-c(idIntencionVoto, fecha),names_to = "candidato", values_to = "resultado") %>%
-  left_join(bd_preparada %>% select(idIntencionVoto, candidato, color = colorHex), by = c("idIntencionVoto", "candidato")) %>%
+  left_join(bd_preparada %>% distinct(candidato, color = colorHex), by = c("candidato")) %>%
   left_join(bd_preparada %>% distinct(idIntencionVoto, calidad), by = "idIntencionVoto")
 
 # Pruebas -----------------------------------------------------------------
@@ -142,17 +145,17 @@ tabla_encuestas <- bd_preparada %>%
   select(!c(idIntencionVoto, fecha)) %>%
   janitor::clean_names() %>%
   arrange(fecha_fin) %>%
-  mutate(diferencia = morena_pt_pvem - pan_pri_prd,
+  mutate(diferencia = claudia_delgadillo - pablo_lemus,
          fecha_fin = format(fecha_fin, "%d-%b-%y"),
          numero_entrevistas = scales::comma(numero_entrevistas),
          error = as.double(error),
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = .1)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia)) %>%
   relocate(casa_encuestadora,
-           morena_pt_pvem,
-           pan_pri_prd,
+           claudia_delgadillo,
+           pablo_lemus,
            diferencia,
-           mc,
+           alfonso_petersen,
            ns_nc,
            otro,
            fecha_fin,
@@ -161,10 +164,10 @@ tabla_encuestas <- bd_preparada %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "MORENA\n-PT-PVEM" = morena_pt_pvem,
-         "PAN-PRI-PRD" = pan_pri_prd,
+         "Claudia\nDelgadillo" = claudia_delgadillo,
+         "Pablo\nLemus" = pablo_lemus,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Movimiento\nciudadano" = mc,
+         "Pablo\nPetersen" = alfonso_petersen,
          "Ns/Nc" = ns_nc,
          "Otro" = otro, 
          "Fecha de\ntérmino" = fecha_fin,
@@ -189,17 +192,17 @@ resultado_gppolls <- modelo_resultado[[1]] %>%
   pivot_wider(names_from = candidato, values_from = media) %>%
   janitor::clean_names() %>%
   mutate(across(where(is.numeric), ~ round(.x, digits = 0)),
-         diferencia = morena_pt_pvem - pan_pri_prd,
+         diferencia = claudia_delgadillo - pablo_lemus,
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = 1.)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia))
 
 tabla_resultadoGppolls <- resultado_gppolls %>%
   bind_cols(dummy_tb) %>%
   relocate(casa_encuestadora,
-           morena_pt_pvem,
-           pan_pri_prd,
+           claudia_delgadillo,
+           pablo_lemus,
            diferencia,
-           mc,
+           alfonso_petersen,
            ns_nc,
            otro,
            fecha_fin,
@@ -208,10 +211,10 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "MORENA\n-PT-PVEM" = morena_pt_pvem,
-         "PAN-PRI-PRD" = pan_pri_prd,
+         "Claudia\nDelgadillo" = claudia_delgadillo,
+         "Pablo\nLemus" = pablo_lemus,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Movimiento\nciudadano" = mc,
+         "Pablo\nPetersen" = alfonso_petersen,
          "Ns/Nc" = ns_nc,
          "Otro" = otro, 
          "Fecha de\ntérmino" = fecha_fin,
@@ -240,9 +243,6 @@ tot_encuestas <- bd_preparada %>%
 ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 
 # Exportar ----------------------------------------------------------------
-
-library(officer)
-library(flextable)
 
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
@@ -278,6 +278,6 @@ folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
 
 dir.create(folder_path)
 
-pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_jalisco_%d_%B"), ".pptx", sep = "")
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_jalisco_candidatos_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()

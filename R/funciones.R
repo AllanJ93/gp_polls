@@ -12,8 +12,8 @@ graficar_modelo = function(modelo, bd_puntos, fecha_estimacion = lubridate::toda
     geom_ribbon(aes(ymin = ic_025, ymax = ic_975), alpha = .3, size = 0) +
     ggrepel::geom_text_repel(data = . %>% filter(fecha == max(fecha)),
                              aes(label = stringr::str_wrap(paste0(mediatt, "% ", candidato), 10)),
-                             hjust = 0, nudge_x = 10, family = "Poppins", size = 5) +
-    geom_point(data = bd_puntos, aes(y = resultado), size = 2, shape = 19) +
+                             hjust = 0, nudge_x = 5, family = "Poppins", size = 5) +
+    geom_point(data = bd_puntos, aes(y = resultado), linewidth = 2, shape = 19) +
     geom_vline(aes(xintercept = max(fecha)), size = 1) +
     scale_color_identity() +
     scale_fill_identity() +
@@ -21,7 +21,7 @@ graficar_modelo = function(modelo, bd_puntos, fecha_estimacion = lubridate::toda
     theme(panel.grid = element_blank()) +
     scale_y_continuous(labels = function(x) paste0(x,"%")) +
     labs(x = NULL, y = "Intención de voto") +
-    scale_x_date(expand = expansion(add = c(0, 10))) +
+    # scale_x_date(expand = expansion(add = c(0, 10))) +
     theme(text = element_text(family = "Poppins", size = 12),
           plot.title.position = "plot",
           axis.title.y.right = element_text(family =  "Poppins", size = 12),
