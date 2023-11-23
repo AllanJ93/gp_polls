@@ -157,8 +157,8 @@ tabla_encuestas <- bd_preparada %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "MORENA\n-PT-PVEM" = margarita_gonzalez,
-         "PAN-PRI-PRD" = lucy_meza,
+         "Margarita González" = margarita_gonzalez,
+         "Lucy Meza" = lucy_meza,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
@@ -202,8 +202,8 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "MORENA\n-PT-PVEM" = margarita_gonzalez,
-         "PAN-PRI-PRD" = lucy_meza,
+         "Margarita González" = margarita_gonzalez,
+         "Lucy Meza" = lucy_meza,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
