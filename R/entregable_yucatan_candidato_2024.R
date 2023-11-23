@@ -19,34 +19,42 @@ archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_gppolls), p
 bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Yucatán", cols = seq.int(1:27)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |> 
-  mutate(casa_encuestadora = stringr::str_trim(string = casa_encuestadora, side = "both"),
-         numero_de_entrevistas = as.integer(numero_de_entrevistas),
-         intencion_de_voto_por_candidato_bruta = as.double(intencion_de_voto_por_candidato_bruta),
-         levantamiento = stringr::str_to_sentence(levantamiento),
-         candidato_modelo = stringr::str_trim(string = candidato_modelo, side = "both"),
-         calidad = "general") |> 
-  rename(metodologia = levantamiento,
-         error = error_muestral,
-         fechaPublicacion = fecha_de_publicacion,
-         fechaInicio = inicio,
-         fechaFin = final,
-         numeroEntrevistas = numero_de_entrevistas) |> 
+  transmute(id = id,
+            casa_encuestadora = stringr::str_trim(string = casa_encuestadora, side = "both"),
+            numeroEntrevistas = as.integer(numero_de_entrevistas),
+            error = round(x = error_muestral, digits = 1),
+            metodologia = stringi::stri_trans_general(stringr::str_to_sentence(levantamiento), "Latin-ASCII"),
+            fechaPublicacion = fecha_de_publicacion,
+            fechaInicio = inicio,
+            fechaFin = final,
+            tipo_de_pregunta,
+            careo,
+            candidato_publicado,
+            candidato_modelo,
+            partido_o_alianza,
+            intencion_de_voto_por_partido_bruta = as.double(intencion_de_voto_por_partido_bruta),
+            intencion_de_voto_por_candidato_bruta = as.double(intencion_de_voto_por_candidato_bruta),
+            candidato_modelo = stringr::str_trim(string = candidato_modelo, side = "both"),
+            calidad = "general") |> 
   filter(!is.na(id))
 
 # Preparar base -----------------------------------------------------------
 
 bd_preparada <- bd_encuestas_raw |> 
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
-  transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
-            numeroEntrevistas,
-            resultado = intencion_de_voto_por_candidato_bruta,
-            candidato = candidato_modelo,
-            careo, 
-            metodologia = stringi::stri_trans_general(metodologia, "Latin-ASCII"), 
-            calidad,
-            total_de_entrevistas = numeroEntrevistas,
-            error) |> 
-  group_by(casa_encuestadora, fechaInicio, fechaFin, error, total_de_entrevistas, metodologia, careo) %>%
+  select(id,
+         casa_encuestadora,
+         fechaInicio,
+         fechaFin,
+         fechaPublicacion,
+         resultado = intencion_de_voto_por_candidato_bruta,
+         candidato = candidato_modelo,
+         careo, 
+         metodologia,
+         calidad,
+         numeroEntrevistas,
+         error) |> 
+  group_by(id, casa_encuestadora, fechaInicio, fechaFin, error, numeroEntrevistas, metodologia, careo) %>%
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
@@ -58,15 +66,15 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(candidato = dplyr::if_else(condition = candidato %in% c("Candidato MC", "Vida Gómez", "Ninguno", "Mauricio Sahui Rivero", "Otro", "Luis Felipe Saidén"),
                                     true = "Otro",
                                     false = candidato),
-         candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
+         candidato = dplyr::if_else(condition = candidato %in% c("Jorge Carlos Ramírez Marín", "No sabe", "No sabe/No Respondió"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
   mutate(colorHex = case_when(candidato == "Joaquín ‘Huacho’ Díaz Mena" ~ color_sheinbaum,
                               candidato == "Renán Barrera" ~ color_pan,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
-  relocate(idIntencionVoto, .after = casa_encuestadora) |>
-  group_by(casa_encuestadora, idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion, numeroEntrevistas, candidato, metodologia, careo, calidad, total_de_entrevistas, error, colorHex) |> 
+  relocate(idIntencionVoto, .after = casa_encuestadora) |> 
+  group_by(id, casa_encuestadora, idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion, candidato, metodologia, careo, calidad, numeroEntrevistas, error, colorHex) |> 
   summarise(resultado = sum(resultado), .groups = "drop") |> 
   relocate(resultado, .before = candidato) |> 
   select(!careo) |> 
@@ -75,7 +83,7 @@ bd_preparada <- bd_encuestas_raw |>
                                       true = fechaInicio - lubridate::ddays(1),
                                       false = fechaInicio)) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
-  filter(!dias_levantamiento <= 0) 
+  filter(!dias_levantamiento <= 0)
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
@@ -240,9 +248,9 @@ ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
-add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
-  ph_with(value = "ENCUESTAS YUCATÁN 2024", location = ph_location_label(ph_label = "titulo")) %>%
-  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
+add_slide(pptx, layout = "1_portada", master = "Tema de Office") %>%
+  ph_with(value = "ENCUESTAS YUCATAN 2024", location = ph_location_label(ph_label = "titulo")) %>%
+  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "fecha"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
   ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%

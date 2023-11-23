@@ -4,6 +4,8 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(rjags)
+library(officer)
+library(flextable)
 
 source(file = "R/parametros.R")
 source(file = "R/funciones.R")
@@ -17,28 +19,41 @@ archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_gppolls), p
 bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Presidencia", cols = seq.int(1:17)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |> 
-  mutate(numero_de_entrevistas = as.integer(numero_de_entrevistas),
-         intencion_de_voto_por_candidato_bruta = as.double(intencion_de_voto_por_candidato_bruta),
-         calidad = "general") |>
-  rename(metodologia = tipo_de_levantamiento,
-         error = error_muestral,
-         fechaPublicacion = fecha_de_publicacion,
-         fechaInicio = inicio,
-         fechaFin = final,
-         numeroEntrevistas = numero_de_entrevistas) |> 
+  transmute(id,
+            casa_encuestadora = stringr::str_trim(string = casa_encuestadora, side = "both"),
+            numeroEntrevistas = as.integer(numero_de_entrevistas),
+            error = round(x = as.double(error_muestral), digits = 1),
+            metodologia = stringi::stri_trans_general(stringr::str_to_sentence(tipo_de_levantamiento), "Latin-ASCII"),
+            fechaPublicacion = fecha_de_publicacion,
+            fechaInicio = inicio,
+            fechaFin = final,
+            tipo_de_pregunta,
+            careo,
+            candidato_publicado,
+            partido_o_alianza,
+            intencion_de_voto_por_partido_bruta = as.double(intencion_de_voto_por_partido_bruta),
+            intencion_de_voto_por_candidato_bruta = as.double(intencion_de_voto_por_candidato_bruta),
+            candidato_modelo = stringr::str_trim(string = candidato_modelo, side = "both"),
+            calidad = "general") |> 
   filter(!is.na(id))
 
 # Preparar base -----------------------------------------------------------
 
 bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
-  transmute(id, casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
-            numeroEntrevistas,
-            resultado = intencion_de_voto_por_candidato_bruta,
-            candidato = candidato_modelo, careo, metodologia, calidad,
-            total_de_entrevistas = numeroEntrevistas,
-            error) |> 
-  group_by(casa_encuestadora, fechaInicio, fechaFin, error, total_de_entrevistas, metodologia, careo) %>%
+  select(id,
+         casa_encuestadora,
+         fechaInicio,
+         fechaFin,
+         fechaPublicacion,
+         resultado = intencion_de_voto_por_candidato_bruta,
+         candidato = candidato_modelo,
+         careo, 
+         metodologia,
+         calidad,
+         numeroEntrevistas,
+         error) |> 
+  group_by(id, casa_encuestadora, fechaInicio, fechaFin, error, numeroEntrevistas, metodologia, careo) %>%
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
@@ -46,33 +61,57 @@ bd_preparada <- bd_encuestas_raw |>
                                     true = T,
                                     false = F)) |> 
   ungroup() |> 
-  filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Eduardo Verástegui", "Independiente", "Ninguno", "No irá a votar", "Es secreto", "Dante Delgado", "NE", "Beatriz Paredes"),
+  filter(trackeable == T) |>
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Eduardo Verástegui", "Independiente", "Ninguno", "No irá a votar", "Es secreto", "Dante Delgado", "NE", "Beatriz Paredes", "Es secreto"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
+  group_by(idIntencionVoto) |> 
+  mutate(tot_candidatos = n()) |> 
+  ungroup() |> 
+  filter(tot_candidatos == 5) |> 
   mutate(colorHex = case_when(candidato == "Claudia Sheinbaum" ~ color_sheinbaum,
                               candidato == "Xóchitl Gálvez" ~ color_pan,
                               candidato == "Samuel García" ~ color_mc,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
-  mutate(resultado = as.double(resultado)) |> 
-  group_by(casa_encuestadora, idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion, numeroEntrevistas, candidato, metodologia, careo, calidad, total_de_entrevistas, error, colorHex) |> 
+  filter(!is.na(resultado)) |> 
+  group_by(id, casa_encuestadora, idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion, candidato, metodologia, careo, calidad, numeroEntrevistas, error, colorHex) |> 
   summarise(resultado = sum(resultado), .groups = "drop") |> 
   relocate(resultado, .before = candidato) |> 
   select(!careo) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
+  mutate(fechaInicio = dplyr::if_else(condition = dias_levantamiento == 0,
+                                      true = fechaInicio - lubridate::ddays(1),
+                                      false = fechaInicio)) |> 
+  mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
   filter(!dias_levantamiento <= 0) |> 
-  filter(!idIntencionVoto %in% c(11, 14, 17, 18))
+  filter(!idIntencionVoto %in% c(29, 34, 59, 61)) |> 
+  filter(idIntencionVoto %in% c(1, 18, 19, 20, 21, 24, 33, 37, 38, 40, 47, 48, 51, 56)) 
+  # filter(!idIntencionVoto %in% c(21, 27, 36, 51, 56))
+  # filter(idIntencionVoto %in% c(1, 17, 18, 19, 26, 28, 31, 35, 39, 40, 59))
+
+bd_preparada |> 
+  distinct(idIntencionVoto)
+  
+  
+bd_preparada |> count(candidato)
+  group_by(idIntencionVoto) |> 
+  summarise(total = sum(resultado))
+  
+  bd_preparada |> View()
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
-  pivot_wider(c(idIntencionVoto, fecha), names_from = candidato, values_from = resultado) %>%
+  pivot_wider(id_cols = c(idIntencionVoto, fecha), names_from = candidato, values_from = resultado) %>%
+  mutate(across(.cols = !c(idIntencionVoto, fecha), .fns = ~ dplyr::if_else(condition = is.na(.x) ,
+                                                                            true = 0.0,
+                                                                            false = .x))) |> 
   pivot_longer(-c(idIntencionVoto, fecha),names_to = "candidato", values_to = "resultado") %>%
-  left_join(bd_preparada %>% select(idIntencionVoto, candidato, color = colorHex), by = c("idIntencionVoto", "candidato")) %>%
+  left_join(bd_preparada %>% distinct(candidato, color = colorHex), by = c("candidato")) %>%
   left_join(bd_preparada %>% distinct(idIntencionVoto, calidad), by = "idIntencionVoto")
 
 # Pruebas -----------------------------------------------------------------
@@ -230,14 +269,11 @@ ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 
 # Exportar ----------------------------------------------------------------
 
-library(officer)
-library(flextable)
-
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
-add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
-  ph_with(value = "ENCUESTAS PRESIDENCIA 2024", location = ph_location_label(ph_label = "titulo")) %>%
-  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
+add_slide(pptx, layout = "1_portada", master = "Tema de Office") %>%
+  ph_with(value = "ENCUESTAS CHIAPAS 2024", location = ph_location_label(ph_label = "titulo")) %>%
+  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "fecha"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
   ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%
