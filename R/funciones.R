@@ -14,12 +14,22 @@ graficar_modelo = function(modelo, bd_puntos, fecha_estimacion = lubridate::toda
                              aes(label = stringr::str_wrap(paste0(mediatt, "% ", candidato), 10)),
                              hjust = 0, nudge_x = 5, family = "Poppins", size = 5) +
     geom_point(data = bd_puntos, aes(y = resultado), linewidth = 2, shape = 19) +
+    geom_vline(xintercept = lubridate::as_date("2023-11-10"), 
+               color = color_morena, 
+               linewidth = 1, 
+               linetype = "dashed") +
+    geom_text(aes(x = lubridate::as_date("2023-11-13"), 
+                  y = (max(modelo$media)*1.4)*100, 
+                  label = "Definición de\ncandidatos"), 
+              vjust = 1.5,
+              color = color_morena) +
     geom_vline(aes(xintercept = max(fecha)), size = 1) +
     scale_color_identity() +
     scale_fill_identity() +
     theme_minimal() +
     theme(panel.grid = element_blank()) +
-    scale_y_continuous(labels = function(x) paste0(x,"%")) +
+    scale_y_continuous(labels = function(x) paste0(x,"%"), 
+                       expand = expansion(add = c(1, 0))) +
     labs(x = NULL, y = "Intención de voto") +
     # scale_x_date(expand = expansion(add = c(0, 10))) +
     theme(text = element_text(family = "Poppins", size = 12),

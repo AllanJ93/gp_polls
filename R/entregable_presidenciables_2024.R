@@ -88,21 +88,24 @@ bd_preparada <- bd_encuestas_raw |>
                                       true = fechaInicio - lubridate::ddays(1),
                                       false = fechaInicio)) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
-  filter(!dias_levantamiento <= 0) |> 
-  filter(!idIntencionVoto %in% c(29, 34, 59, 61)) |> 
-  filter(idIntencionVoto %in% c(1, 18, 19, 20, 21, 24, 33, 37, 38, 40, 47, 48, 51, 56)) 
-  # filter(!idIntencionVoto %in% c(21, 27, 36, 51, 56))
+  filter(!dias_levantamiento <= 0)
+
+bd_preparada |> distinct(idIntencionVoto)
+
+bd_preparada <- bd_preparada |> 
+  filter(idIntencionVoto %in% c(1, 10, 12, 15, 22, 23, 24, 28, 30, 31, 33, 41))
+  # filter(!idIntencionVoto %in% c(29, 34, 59, 61)) |> 
+  
+  
+# filter(!idIntencionVoto %in% c(21, 27, 36, 51, 56))
   # filter(idIntencionVoto %in% c(1, 17, 18, 19, 26, 28, 31, 35, 39, 40, 59))
 
 bd_preparada |> 
   distinct(idIntencionVoto)
   
-  
-bd_preparada |> count(candidato)
+bd_preparada |> 
   group_by(idIntencionVoto) |> 
   summarise(total = sum(resultado))
-  
-  bd_preparada |> View()
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
@@ -128,7 +131,7 @@ bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
   filter_at(vars(contains("fecha")), any_vars(. > lubridate::today()))
 bd_preparada %>% 
-  distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
+  distinct(idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion) %>%
   mutate(dias_levantamiento = fechaFin - fechaInicio) |>
   arrange(desc(dias_levantamiento))
 bd_preparada %>%

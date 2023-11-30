@@ -85,7 +85,7 @@ bd_preparada <- bd_encuestas_raw |>
                                       false = fechaInicio)) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
   filter(!dias_levantamiento <= 0) |> 
-  filter(idIntencionVoto != 4)
+  filter(!idIntencionVoto %in% c(3))
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
@@ -111,11 +111,11 @@ bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
   filter_at(vars(contains("fecha")), any_vars(. > lubridate::today()))
 bd_preparada %>% 
-  distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
+  distinct(idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion) %>%
   mutate(dias_levantamiento = fechaFin - fechaInicio) |>
   arrange(desc(dias_levantamiento))
 bd_preparada %>%
-  distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
+  distinct(idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion) %>%
   mutate(dias_levantamiento = fechaFin - fechaInicio) %>%
   ggplot() +
   geom_histogram(aes(y = dias_levantamiento)) +

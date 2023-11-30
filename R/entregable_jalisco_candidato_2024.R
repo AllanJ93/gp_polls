@@ -19,10 +19,10 @@ archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_gppolls), p
 bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Jalisco", cols = seq.int(1:27)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |> 
-  transmute(id = id,
+  transmute(id,
             casa_encuestadora = stringr::str_trim(string = casa_encuestadora, side = "both"),
             numeroEntrevistas = as.integer(numero_de_entrevistas),
-            error = round(x = error_muestral, digits = 1),
+            error = round(x = as.double(error_muestral), digits = 1),
             metodologia = stringi::stri_trans_general(stringr::str_to_sentence(levantamiento), "Latin-ASCII"),
             fechaPublicacion = fecha_de_publicacion,
             fechaInicio = inicio,
@@ -41,7 +41,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Jalisco
 # Preparar base -----------------------------------------------------------
 
 bd_preparada <- bd_encuestas_raw |> 
-  filter(tipo_de_pregunta == "intencion_de_voto_por_candidato_bruta") |> 
+  filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -176,7 +176,7 @@ tabla_encuestas <- bd_preparada %>%
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Pablo\nPetersen" = alfonso_petersen,
          "Ns/Nc" = ns_nc,
-         "Otro" = otro, 
+         "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
@@ -223,7 +223,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Pablo\nPetersen" = alfonso_petersen,
          "Ns/Nc" = ns_nc,
-         "Otro" = otro, 
+         "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
