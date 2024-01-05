@@ -63,7 +63,7 @@ bd_preparada <- bd_encuestas_raw |>
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Desireé Ángel Rocha", "Yulma Rocha"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Desireé Ángel Rocha", "Yulma Rocha", "Gerardo Fernández", "Rodrigo González Zaragoza"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),

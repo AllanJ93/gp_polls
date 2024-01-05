@@ -58,7 +58,7 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("Margarita González", "Lucy Meza") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("Margarita González", "Lucy Meza", "Jessica Ortega") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
@@ -71,6 +71,7 @@ bd_preparada <- bd_encuestas_raw |>
                                     false = candidato)) |> 
   mutate(colorHex = case_when(candidato == "Margarita González" ~ color_morena,
                               candidato == "Lucy Meza" ~ color_pan,
+                              candidato == "Jessica Ortega" ~ color_mc,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
@@ -131,7 +132,7 @@ fecha_estimacion <- lubridate::today()
 
 modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato), fechaFin = fecha_estimacion)
 
-modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos)
+modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos, fecha_candidatos = F)
 
 tabla_encuestas <- bd_preparada %>% 
   select(casa_encuestadora, idIntencionVoto) %>%
@@ -155,6 +156,7 @@ tabla_encuestas <- bd_preparada %>%
            margarita_gonzalez,
            lucy_meza,
            diferencia,
+           jessica_ortega,
            ns_nc,
            otro,
            fecha_fin,
@@ -163,9 +165,10 @@ tabla_encuestas <- bd_preparada %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "Margarita González" = margarita_gonzalez,
-         "Lucy Meza" = lucy_meza,
+         "Margarita\nGonzález" = margarita_gonzalez,
+         "Lucy\nMeza" = lucy_meza,
          "Diferencia\nventaja\n(puntos)" = diferencia,
+         "Jessica\nOrtega" = jessica_ortega,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
@@ -200,6 +203,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            margarita_gonzalez,
            lucy_meza,
            diferencia,
+           jessica_ortega,
            ns_nc,
            otro,
            fecha_fin,
@@ -208,9 +212,10 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "Margarita González" = margarita_gonzalez,
-         "Lucy Meza" = lucy_meza,
+         "Margarita\nGonzález" = margarita_gonzalez,
+         "Lucy\nMeza" = lucy_meza,
          "Diferencia\nventaja\n(puntos)" = diferencia,
+         "Jessica\nOrtega" = jessica_ortega,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
@@ -257,7 +262,7 @@ tabla_completa_anexos %>%
                  ph_with(value = .x %>% select(!c(sep, id)) %>%
                            flextable(cwidth = 2, cheight = 1) %>%
                            theme_vanilla() %>%
-                           color(j = c(1:4, 6:11), color = color_morena, part = "header") %>%
+                           color(j = c(1:4, 6:12), color = color_morena, part = "header") %>%
                            bold(j = c("Diferencia\nventaja\n(puntos)"), bold = TRUE, part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "header") %>%

@@ -1,6 +1,6 @@
 # Estimacion intención de voto (modelo) -----------------------------------
 
-graficar_modelo = function(modelo, bd_puntos, fecha_estimacion = lubridate::today()) {
+graficar_modelo = function(modelo, bd_puntos, fecha_estimacion = lubridate::today(), fecha_candidatos = T) {
   
   g <- modelo %>%
     filter(fecha <= fecha_estimacion) %>%
@@ -13,16 +13,20 @@ graficar_modelo = function(modelo, bd_puntos, fecha_estimacion = lubridate::toda
     ggrepel::geom_text_repel(data = . %>% filter(fecha == max(fecha)),
                              aes(label = stringr::str_wrap(paste0(mediatt, "% ", candidato), 10)),
                              hjust = 0, nudge_x = 5, family = "Poppins", size = 5) +
-    geom_point(data = bd_puntos, aes(y = resultado), linewidth = 2, shape = 19) +
-    geom_vline(xintercept = lubridate::as_date("2023-11-10"), 
-               color = color_morena, 
-               linewidth = 1, 
-               linetype = "dashed") +
-    geom_text(aes(x = lubridate::as_date("2023-11-13"), 
-                  y = (max(modelo$media)*1.4)*100, 
-                  label = "Definición de\ncandidatos"), 
-              vjust = 1.5,
-              color = color_morena) +
+    geom_point(data = bd_puntos, aes(y = resultado), linewidth = 2, shape = 19)
+  if(fecha_candidatos) {
+    g <- g +
+      geom_vline(xintercept = lubridate::as_date("2023-11-10"), 
+                 color = color_morena, 
+                 linewidth = 1, 
+                 linetype = "dashed") +
+      geom_text(aes(x = lubridate::as_date("2023-11-13"), 
+                    y = (max(modelo$media)*1.4)*100, 
+                    label = "Definición de\ncandidatos"), 
+                vjust = 1.5,
+                color = color_morena)
+  }
+  g <- g +
     geom_vline(aes(xintercept = max(fecha)), size = 1) +
     scale_color_identity() +
     scale_fill_identity() +
@@ -58,8 +62,8 @@ graficar_comparativa_ivoto <- function(bd) {
     #                 aes(ymin = ic_025, ymax = ic_975), size = 1) +
     geom_ribbon(aes(ymin = ic_025, ymax = ic_975), alpha = 0.3, size = 0) +
     ggrepel::geom_text_repel(data = . %>% filter(fecha == lubridate::today()),
-                    aes(label = stringr::str_wrap(paste(round(media*100, digits = 0), "% ", candidato), 10)),
-                    hjust = 0, nudge_x = 10, size = 5) +
+                             aes(label = stringr::str_wrap(paste(round(media*100, digits = 0), "% ", candidato), 10)),
+                             hjust = 0, nudge_x = 10, size = 5) +
     # ggrepel::geom_text_repel(data = . %>% filter(fecha == as.Date("2023-06-04")),
     #                 aes(label = stringr::str_wrap(paste(round(media*100, digits = 0), "% ", candidato), 10)),
     #                 hjust = 0, nudge_x = 10, size = 5) +
@@ -71,13 +75,13 @@ graficar_comparativa_ivoto <- function(bd) {
     #                     label = stringr::str_wrap(paste(round(ic_975*100, digits = 0), "% "), 10)),
     #                 hjust = 3, nudge_x = 10, size = 3, inherit.aes = F) +
     # geom_text_repel(data = . %>% filter(fecha == as.Date("2023-06-04")),
-    #                 aes(x = fecha,
-    #                     y = ic_025,
-    #                     color = color,
-    #                     fill = color,
-    #                     label = stringr::str_wrap(paste(round(ic_025*100, digits = 0), "% "), 10)),
-    #                 hjust = 3, nudge_x = 10, size = 3, inherit.aes = F) +
-    scale_fill_identity() +
+  #                 aes(x = fecha,
+  #                     y = ic_025,
+  #                     color = color,
+  #                     fill = color,
+  #                     label = stringr::str_wrap(paste(round(ic_025*100, digits = 0), "% "), 10)),
+  #                 hjust = 3, nudge_x = 10, size = 3, inherit.aes = F) +
+  scale_fill_identity() +
     scale_color_identity() +
     scale_x_date(expand = expansion(add = c(10, 10)),
                  date_breaks = "1 month", date_labels = "%B") +

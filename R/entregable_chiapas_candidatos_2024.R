@@ -63,7 +63,7 @@ bd_preparada <- bd_encuestas_raw |>
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Ninguno", "María Elena Orantes"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Ninguno", "María Elena Orantes", "Candidato MC"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe"),
@@ -95,6 +95,8 @@ bd_puntos <- bd_preparada %>%
   pivot_longer(-c(idIntencionVoto, fecha),names_to = "candidato", values_to = "resultado") %>%
   left_join(bd_preparada %>% distinct(candidato, color = colorHex), by = c("candidato")) %>%
   left_join(bd_preparada %>% distinct(idIntencionVoto, calidad), by = "idIntencionVoto")
+
+bd_puntos
 
 # Pruebas -----------------------------------------------------------------
 
