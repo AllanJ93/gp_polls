@@ -42,6 +42,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Morelos
 
 bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
+  filter(lubridate::as_date("2023-07-01") < fechaInicio) |> 
   select(id,
          casa_encuestadora,
          fechaInicio,
