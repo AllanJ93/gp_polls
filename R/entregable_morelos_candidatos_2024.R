@@ -15,7 +15,7 @@ source(file = "R/funciones.R")
 id_bd_gppolls <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=0"
 dir_bd_gppolls <-  "Insumos/bd_gppolls.xlsx"
 archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_gppolls), path = dir_bd_gppolls, overwrite = TRUE)
-1
+2
 bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Morelos", cols = seq.int(1:27)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |> 
@@ -63,7 +63,7 @@ bd_preparada <- bd_encuestas_raw |>
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Jessica Ortega", "Candidato MC", "OTRO"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Candidato MC", "OTRO"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe"),
