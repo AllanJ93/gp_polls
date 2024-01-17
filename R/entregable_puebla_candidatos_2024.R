@@ -42,6 +42,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Puebla"
 
 bd_preparada <- bd_encuestas_raw |> 
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
+  filter(lubridate::as_date("2023-02-01") <= fechaInicio) |> 
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -57,16 +58,22 @@ bd_preparada <- bd_encuestas_raw |>
   group_by(id, casa_encuestadora, fechaInicio, fechaFin, error, numeroEntrevistas, metodologia, careo) %>%
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
+  mutate(candidato = gsub(patter = "Alejandro Armenta Mier", replacement = "Alejandro Armenta", x = candidato)) |> 
+  mutate(candidato = gsub(patter = "Alejandro Armenta", replacement = "Alejandro Armenta Mier", x = candidato)) |> 
+  mutate(candidato = gsub(patter = "Fernando Morales Martinez", replacement = "Fernando Morales", x = candidato)) |> 
+  mutate(candidato = gsub(patter = "Fernando Morales", replacement = "Fernando Morales Martinez", x = candidato)) |> 
+  mutate(candidato = gsub(patter = "Eduardo Rivera Pérez", replacement = "Eduardo Rivera", x = candidato)) |> 
+  mutate(candidato = gsub(patter = "Eduardo Rivera", replacement = "Eduardo Rivera Pérez", x = candidato)) |> 
   group_by(idIntencionVoto) |> 
   mutate(trackeable = dplyr::if_else(condition = all(c("Alejandro Armenta Mier", "Eduardo Rivera Pérez") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Fernando Morales", "Candidato PSI"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Fernando Morales", "Candidato PSI", "Candidato", "Candidato MC", "Candidato PANAL", "Fernando Morales Martinez", "Grace Palomares", "Ninguno", "Precandidato"),
                                     true = "Otro",
                                     false = candidato),
-         candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
+         candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió", "Ns/Nc"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
   mutate(colorHex = case_when(candidato == "Alejandro Armenta Mier" ~ color_sheinbaum,
