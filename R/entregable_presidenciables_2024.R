@@ -57,12 +57,13 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("Claudia Sheinbaum", "Samuel García", "Xóchitl Gálvez") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("Claudia Sheinbaum", "Xóchitl Gálvez") %in% candidato),
                                     true = T,
                                     false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |>
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Eduardo Verástegui", "Independiente", "Ninguno", "No irá a votar", "Es secreto", "Dante Delgado", "NE", "Beatriz Paredes", "Es secreto"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Eduardo Verástegui", "Independiente", "Ninguno", "No irá a votar", "Es secreto", "Dante Delgado", "NE", "Beatriz Paredes", "Es secreto", 
+                                                                 "Ninugno", "Juan Zepeda", "Jorge Álvarez Maynez", "Marcelo Ebrard", "Candidato MC", "Samuel García"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe"),
@@ -92,8 +93,8 @@ bd_preparada <- bd_encuestas_raw |>
 
 bd_preparada |> distinct(idIntencionVoto)
 
-bd_preparada <- bd_preparada |> 
-  filter(idIntencionVoto %in% c(1, 10, 12, 15, 22, 23, 24, 28, 30, 31, 33, 41))
+# bd_preparada <- bd_preparada |> 
+#   filter(idIntencionVoto %in% c(1, 10, 12, 15, 22, 23, 24, 28, 30, 31, 33, 41))
   # filter(!idIntencionVoto %in% c(29, 34, 59, 61)) |> 
   
   
@@ -183,7 +184,7 @@ tabla_encuestas <- bd_preparada %>%
            claudia_sheinbaum,
            xochitl_galvez,
            diferencia,
-           samuel_garcia,
+           # samuel_garcia,
            ns_nc,
            otro,
            fecha_fin,
@@ -195,7 +196,7 @@ tabla_encuestas <- bd_preparada %>%
          "Claudia\nSheinbaum" = claudia_sheinbaum,
          "Xóchitl\nGálvez" = xochitl_galvez,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Samuel\nGarcía" = samuel_garcia,
+         # "Samuel\nGarcía" = samuel_garcia,
          "Ns/Nc" = ns_nc,
          "Otro" = otro, 
          "Fecha de\ntérmino" = fecha_fin,
@@ -230,7 +231,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            claudia_sheinbaum,
            xochitl_galvez,
            diferencia,
-           samuel_garcia,
+           # samuel_garcia,
            ns_nc,
            otro,
            fecha_fin,
@@ -242,7 +243,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
          "Claudia\nSheinbaum" = claudia_sheinbaum,
          "Xóchitl\nGálvez" = xochitl_galvez,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Samuel\nGarcía" = samuel_garcia,
+         # "Samuel\nGarcía" = samuel_garcia,
          "Ns/Nc" = ns_nc,
          "Otro" = otro, 
          "Fecha de\ntérmino" = fecha_fin,
@@ -289,7 +290,7 @@ tabla_completa_anexos %>%
                  ph_with(value = .x %>% select(!c(sep, id)) %>%
                            flextable(cwidth = 2, cheight = 1) %>%
                            theme_vanilla() %>%
-                           color(j = c(1:4, 6:12), color = color_morena, part = "header") %>%
+                           color(j = c(1:4, 6:11), color = color_morena, part = "header") %>%
                            bold(j = c("Diferencia\nventaja\n(puntos)"), bold = TRUE, part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "header") %>%
