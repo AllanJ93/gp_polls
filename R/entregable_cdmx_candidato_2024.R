@@ -42,6 +42,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "CDMX", 
 
 bd_preparada <- bd_encuestas_raw |> 
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
+  filter(lubridate::as_date("2023-07-01") < fechaInicio) |> 
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -58,12 +59,12 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("Clara Brugada", "Santiago Taboada") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("Clara Brugada", "Santiago Taboada", "Salomón Chertorivski") %in% candidato),
                                      true = T,
                                      false = F)) |>
   ungroup() |>
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Adrián Rubalcava", "Otro", "Ninguno"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Adrián Rubalcava", "Otro", "Ninguno", "Independiente"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No Sabe", "No sabe", "No sabe/No Respondió"),
