@@ -32,6 +32,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "CDMX", 
 
 bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por partido") |> 
+  filter(id != "RUBRUM_1") |> 
   transmute(id, casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
             resultado = intencion_de_voto_por_partido_bruta,
@@ -43,21 +44,19 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA", "PAN", "MC") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD", "MC") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("PT", "PVEM", "Otros", "Ninguno", "Otro"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Ninguno"),
                                     true = "Otro",
                                     false = candidato),
-         candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
+         candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió", "No Sabe/No Respondió"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
-  mutate(colorHex = case_when(candidato == "MORENA" ~ color_morena,
-                              candidato == "PAN" ~ color_pan,
-                              candidato == "PRI" ~ color_pri,
-                              candidato == "PRD" ~ color_prd,
+  mutate(colorHex = case_when(candidato == "MORENA_PT_PVEM" ~ color_morena,
+                              candidato == "PAN_PRI_PRD" ~ color_pan,
                               candidato == "MC" ~ color_mc,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
@@ -72,7 +71,7 @@ bd_preparada <- bd_encuestas_raw |>
                                       true = fechaInicio - lubridate::ddays(1),
                                       false = fechaInicio)) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
-  filter(!dias_levantamiento <= 0)
+  filter(!dias_levantamiento <= 0) 
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
@@ -94,15 +93,11 @@ bd_preparada %>%
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
 bd_preparada %>% naniar::vis_miss()
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/7) %>% 
-  arrange(desc(calidad))
-bd_preparada %>% 
-  count(metodologia, calidad) %>% 
-  mutate(n=n/7) %>%
-  group_by(calidad) %>% 
-  summarise(tot = sum(n))
+# bd_preparada %>% 
+#   count(metodologia, calidad) %>% 
+#   mutate(n=n/3) %>%
+#   group_by(calidad) %>% 
+#   summarise(tot = sum(n))
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
   filter_at(vars(contains("fecha")), any_vars(. > lubridate::today()))
@@ -148,16 +143,16 @@ tabla_encuestas <- bd_preparada %>%
             by = c("idIntencionVoto", "casa_encuestadora")) %>%
   select(!c(idIntencionVoto, fecha)) %>%
   janitor::clean_names() %>%
-  arrange(fecha_fin) %>%
-  mutate(diferencia = morena - pan,
+  arrange(fecha_fin) %>% 
+  mutate(diferencia = morena_pt_pvem - pan_pri_prd,
          fecha_fin = format(fecha_fin, "%d-%b-%y"),
          numero_entrevistas = scales::comma(numero_entrevistas),
          error = as.double(error),
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = .1)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia)) %>% 
   relocate(casa_encuestadora,
-           morena,
-           pan,
+           morena_pt_pvem,
+           pan_pri_prd,
            diferencia,
            # pri,
            # prd,
@@ -170,8 +165,8 @@ tabla_encuestas <- bd_preparada %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "MORENA" = morena,
-         "PAN" = pan,
+         "MORENA\nPT-PVEM" = morena_pt_pvem,
+         "PAN-PRI-PRD" = pan_pri_prd,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          # "PRI" = pri,
          "MC" = mc,
@@ -199,15 +194,15 @@ resultado_gppolls <- modelo_resultado[[1]] %>%
   pivot_wider(names_from = candidato, values_from = media) %>%
   janitor::clean_names() %>%
   mutate(across(where(is.numeric), ~ round(.x, digits = 0)),
-         diferencia = morena - pan,
+         diferencia = morena_pt_pvem - pan_pri_prd,
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = 1.)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia))
 
 tabla_resultadoGppolls <- resultado_gppolls %>%
   bind_cols(dummy_tb) %>%
   relocate(casa_encuestadora,
-           morena,
-           pan,
+           morena_pt_pvem,
+           pan_pri_prd,
            diferencia,
            # pri,
            # prd,
@@ -220,8 +215,8 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            metodologia,
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
-         "MORENA" = morena,
-         "PAN" = pan,
+         "MORENA\nPT-PVEM" = morena_pt_pvem,
+         "PAN-PRI-PRD" = pan_pri_prd,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          # "PRI" = pri,
          "MC" = mc,
