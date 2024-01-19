@@ -43,7 +43,7 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA", "PAN", "PRI", "PRD", "MC") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA", "PAN", "MC") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
@@ -96,11 +96,11 @@ bd_preparada %>%
 bd_preparada %>% naniar::vis_miss()
 bd_preparada %>% 
   count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>% 
+  mutate(n=n/7) %>% 
   arrange(desc(calidad))
 bd_preparada %>% 
   count(metodologia, calidad) %>% 
-  mutate(n=n/4) %>%
+  mutate(n=n/7) %>%
   group_by(calidad) %>% 
   summarise(tot = sum(n))
 bd_preparada %>%
@@ -159,8 +159,8 @@ tabla_encuestas <- bd_preparada %>%
            morena,
            pan,
            diferencia,
-           pri,
-           prd,
+           # pri,
+           # prd,
            mc,
            ns_nc,
            otro,
@@ -173,7 +173,7 @@ tabla_encuestas <- bd_preparada %>%
          "MORENA" = morena,
          "PAN" = pan,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "PRI" = pri,
+         # "PRI" = pri,
          "MC" = mc,
          "Ns/Nc" = ns_nc,
          "Otro" = otro, 
@@ -209,8 +209,8 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            morena,
            pan,
            diferencia,
-           pri,
-           prd,
+           # pri,
+           # prd,
            mc,
            ns_nc,
            otro,
@@ -223,7 +223,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
          "MORENA" = morena,
          "PAN" = pan,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "PRI" = pri,
+         # "PRI" = pri,
          "MC" = mc,
          "Ns/Nc" = ns_nc,
          "Otro" = otro, 
@@ -257,11 +257,35 @@ ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 library(officer)
 library(flextable)
 
+# # OLDER
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
+# 
+# add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
+#   ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%
+#   ph_with(value = paste("Última encuesta: ", format(x = ultima_encuesta, "%d de %B %Y")), location = ph_location_label(ph_label = "subtitulo")) %>%
+#   ph_with(value = modelo_graf, location = ph_location_label(ph_label = "imagen_principal"))
+# 
+# tabla_completa_anexos %>%
+#   purrr::walk( ~ add_slide(pptx, layout = "anexos", master = "Tema de Office") %>%
+#                  ph_with(value = "Encuestas usadas como insumo", location = ph_location_label(ph_label = "titulo")) %>%
+#                  ph_with(value = .x %>% select(!c(sep, id)) %>%
+#                            flextable(cwidth = 2, cheight = 1) %>%
+#                            theme_vanilla() %>%
+#                            color(j = c(1:4, 6:14), color = color_morena, part = "header") %>%
+#                            bold(j = c("Diferencia\nventaja\n(puntos)"), bold = TRUE, part = "body") %>%
+#                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "body") %>%
+#                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "header") %>%
+#                            bg(i = ~ `Casa Encuestadora` == "RESULTADO GPPOLLS", bg = color_morena, part = "body") %>%
+#                            color(i = ~ `Casa Encuestadora` == "RESULTADO GPPOLLS", color = "white", part = "body") %>%
+#                            bold(i = ~ `Casa Encuestadora` == "RESULTADO GPPOLLS", bold = T, part = "body") %>%
+#                            align(align = "center", part = "header") %>%
+#                            align(align = "center", part = "body") %>%
+#                            autofit(), location = ph_location_label(ph_label = "tabla")))
 
-add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
+# NEW
+add_slide(pptx, layout = "1_portada", master = "Tema de Office") %>%
   ph_with(value = "ENCUESTAS CDMX 2024", location = ph_location_label(ph_label = "titulo")) %>%
-  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
+  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "fecha"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
   ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%
@@ -274,7 +298,7 @@ tabla_completa_anexos %>%
                  ph_with(value = .x %>% select(!c(sep, id)) %>%
                            flextable(cwidth = 2, cheight = 1) %>%
                            theme_vanilla() %>%
-                           color(j = c(1:4, 6:14), color = color_morena, part = "header") %>%
+                           color(j = c(1:4, 6:12), color = color_morena, part = "header") %>%
                            bold(j = c("Diferencia\nventaja\n(puntos)"), bold = TRUE, part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "header") %>%
@@ -291,6 +315,6 @@ folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
 
 dir.create(folder_path)
 
-pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_cdmx_%d_%B"), ".pptx", sep = "")
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_cdmx_partidos_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()
