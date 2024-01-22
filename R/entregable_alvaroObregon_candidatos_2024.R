@@ -69,7 +69,7 @@ bd_preparada <- bd_encuestas_raw |>
          candidato = dplyr::if_else(condition = candidato %in% c("No Sabe", "No sabe", "No sabe/No Respondió"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
-  mutate(colorHex = case_when(candidato == "Lía Limón" ~ color_pri,
+  mutate(colorHex = case_when(candidato == "Lía Limón" ~ color_pan,
                               candidato == "Javier López Casarín" ~ color_morena,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
