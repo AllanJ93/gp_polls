@@ -42,6 +42,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Yucatá
 
 bd_preparada <- bd_encuestas_raw |> 
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
+  filter(lubridate::as_date("2023-10-01") <= fechaInicio) |> 
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -63,7 +64,7 @@ bd_preparada <- bd_encuestas_raw |>
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |>
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Candidato MC", "Vida Gómez", "Ninguno", "Mauricio Sahui Rivero", "Otro", "Luis Felipe Saidén"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Candidato MC", "Vida Gómez", "Ninguno", "Mauricio Sahui Rivero", "Otro", "Luis Felipe Saidén", "Candidato PRD"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("Jorge Carlos Ramírez Marín", "No sabe", "No sabe/No Respondió"),
