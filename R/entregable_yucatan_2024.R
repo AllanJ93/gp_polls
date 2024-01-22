@@ -31,7 +31,8 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Yucatá
 
 bd_preparada <- bd_encuestas_raw |> 
   filter(tipo_de_pregunta == "Intención de voto por partido") |> 
-  filter(id != "RUBRUM_2") |> 
+  filter(lubridate::as_date("2023-08-01") <= fechaInicio) |> 
+  # distinct(fechaInicio) |> arrange(fechaInicio)
   transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
             resultado = as.double(intencion_de_voto_por_partido_bruta),
@@ -249,9 +250,9 @@ library(flextable)
 
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
-add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
+add_slide(pptx, layout = "1_portada", master = "Tema de Office") %>%
   ph_with(value = "ENCUESTAS YUCATAN 2024", location = ph_location_label(ph_label = "titulo")) %>%
-  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
+  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "fecha"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
   ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%
@@ -264,7 +265,7 @@ tabla_completa_anexos %>%
                  ph_with(value = .x %>% select(!c(sep, id)) %>%
                            flextable(cwidth = 2, cheight = 1) %>%
                            theme_vanilla() %>%
-                           color(j = c(1:4, 6:13), color = color_morena, part = "header") %>%
+                           color(j = c(1:4, 6:11), color = color_morena, part = "header") %>%
                            bold(j = c("Diferencia\nventaja\n(puntos)"), bold = TRUE, part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "body") %>%
                            bg(j = c("Diferencia\nventaja\n(puntos)"), bg = "#E2F0D9", part = "header") %>%
@@ -281,6 +282,6 @@ folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
 
 dir.create(folder_path)
 
-pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_yucatan_%d_%B"), ".pptx", sep = "")
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_yucatan_partidos_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()
