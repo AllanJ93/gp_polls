@@ -42,6 +42,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Jalisco
 
 bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por partido") |> 
+  filter(id != "Ref_1") |> # SUMA MAS DE 100
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -107,6 +108,10 @@ bd_preparada %>%
   group_by(idIntencionVoto) %>% 
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
+bd_preparada %>% 
+  group_by(idIntencionVoto) %>% 
+  summarise(suma_de_porcentaje = sum(resultado)) |> 
+  filter(suma_de_porcentaje != 100)
 bd_preparada %>% naniar::vis_miss()
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
@@ -287,6 +292,6 @@ folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
 
 dir.create(folder_path)
 
-pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_jalisco_%d_%B"), ".pptx", sep = "")
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_jalisco_partidos_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()
