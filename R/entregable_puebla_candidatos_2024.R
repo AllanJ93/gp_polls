@@ -127,6 +127,9 @@ bd_preparada %>%
   coord_flip() +
   theme_minimal() +
   labs(y = "Días de levantamiento", x = "Encuestas")
+bd_preparada |> 
+  distinct(fechaInicio) |> 
+  print(n = Inf)
 
 # Cargar modelo y simulaciones -------------------------------------------- 
 
