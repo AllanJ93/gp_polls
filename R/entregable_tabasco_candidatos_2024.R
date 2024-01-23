@@ -42,7 +42,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Tabasco
 
 bd_preparada <- bd_encuestas_raw |> 
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
-  # filter(lubridate::as_date("2023-07-01") < fechaInicio) |> 
+  filter(lubridate::as_date("2023-11-01") < fechaInicio) |> #distinct(fechaInicio) |> arrange(fechaInicio)
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -85,8 +85,7 @@ bd_preparada <- bd_encuestas_raw |>
                                       true = fechaInicio - lubridate::ddays(1),
                                       false = fechaInicio)) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
-  filter(!dias_levantamiento <= 0) |> 
-  filter(!idIntencionVoto %in% c(3))
+  filter(!dias_levantamiento <= 0)
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%

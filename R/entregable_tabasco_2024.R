@@ -31,6 +31,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Tabasco
 
 bd_preparada <- bd_encuestas_raw |> 
   filter(tipo_de_pregunta == "Intención de voto por partido") |> 
+  filter(lubridate::as_date("2023-08-06") <= fechaInicio) |> 
   transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
             resultado = as.double(intencion_de_voto_por_partido_bruta),
@@ -104,6 +105,9 @@ bd_preparada %>%
   coord_flip() +
   theme_minimal() +
   labs(y = "Días de levantamiento", x = "Encuestas")
+bd_preparada |> 
+  distinct(fechaInicio) |> 
+  arrange(fechaInicio)
 
 # Cargar modelo y simulaciones -------------------------------------------- 
 
@@ -239,9 +243,9 @@ library(flextable)
 
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
-add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
+add_slide(pptx, layout = "1_portada", master = "Tema de Office") %>%
   ph_with(value = "ENCUESTAS TABASCO 2024", location = ph_location_label(ph_label = "titulo")) %>%
-  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
+  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "fecha"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
   ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%
@@ -271,6 +275,6 @@ folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
 
 dir.create(folder_path)
 
-pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_tabasco_%d_%B"), ".pptx", sep = "")
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_tabasco_partidos_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()
