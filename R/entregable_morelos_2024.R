@@ -32,6 +32,8 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Morelos
 
 bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por partido") |> 
+  filter(!id == "Fact_1") |>
+  filter(!id == "RUBRUM_4") |>
   transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
             resultado = intencion_de_voto_por_partido_bruta,
@@ -45,12 +47,12 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD", "MC") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("FUTURO JALISCO", "OTRO"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("OTRO", "Ninguno"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
@@ -91,6 +93,10 @@ bd_preparada %>%
   group_by(idIntencionVoto) %>% 
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
+bd_preparada %>% 
+  group_by(idIntencionVoto) %>% 
+  summarise(suma_de_porcentaje = sum(resultado)) |> 
+  filter(suma_de_porcentaje != 100)
 bd_preparada %>% naniar::vis_miss()
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
@@ -144,7 +150,7 @@ tabla_encuestas <- bd_preparada %>%
            diferencia,
            mc,
            ns_nc,
-           # otro,
+           otro,
            fecha_fin,
            numero_entrevistas,
            error,
@@ -156,7 +162,7 @@ tabla_encuestas <- bd_preparada %>%
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Movimiento\nciudadano" = mc,
          "Ns/Nc" = ns_nc,
-         # "Otro" = otro,
+         "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
@@ -191,7 +197,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            diferencia,
            mc,
            ns_nc,
-           # otro,
+           otro,
            fecha_fin,
            numero_entrevistas,
            error,
@@ -203,7 +209,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Movimiento\nciudadano" = mc,
          "Ns/Nc" = ns_nc,
-         # "Otro" = otro,
+         "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
          "Total de\nentrevistas" = numero_entrevistas,
          "Error" = error,
@@ -212,7 +218,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
 
 tabla_completa <- tabla_encuestas |> 
   bind_rows(tabla_resultadoGppolls) |> 
-  select(!c(Calidad, otros)) |> 
+  select(!c(Calidad, Otro)) |> 
   tibble::rownames_to_column(var = "N°") %>%
   mutate(`N°` = case_when(`Casa Encuestadora` == "RESULTADO GPPOLLS" ~ "", T ~ `N°`))
 
@@ -236,9 +242,9 @@ library(flextable)
 
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
-add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
+add_slide(pptx, layout = "1_portada", master = "Tema de Office") %>%
   ph_with(value = "ENCUESTAS MORELOS 2024", location = ph_location_label(ph_label = "titulo")) %>%
-  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
+  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "fecha"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
   ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%
@@ -268,6 +274,6 @@ folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
 
 dir.create(folder_path)
 
-pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_morelos_%d_%B"), ".pptx", sep = "")
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_morelos_partidos_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()
