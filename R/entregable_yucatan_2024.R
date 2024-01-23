@@ -32,7 +32,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Yucatá
 bd_preparada <- bd_encuestas_raw |> 
   filter(tipo_de_pregunta == "Intención de voto por partido") |> 
   filter(lubridate::as_date("2023-08-01") <= fechaInicio) |> 
-  # distinct(fechaInicio) |> arrange(fechaInicio)
+  filter(!id == "ELECTO_2") |> # SUMA 103%
   transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
             resultado = as.double(intencion_de_voto_por_partido_bruta),
@@ -44,14 +44,14 @@ bd_preparada <- bd_encuestas_raw |>
             error) |> 
   group_by(casa_encuestadora, fechaInicio, fechaFin, error, total_de_entrevistas, metodologia, careo) %>%
   mutate(idIntencionVoto = cur_group_id()) %>% 
-  ungroup() |> 
+  ungroup() |>
   group_by(idIntencionVoto) |> 
   mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD", "MC") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("OTRO", "Otro", "Otros", "PT", "PVEM", "PRD", "PANAL"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("OTRO", "Otro", "Otros", "PT", "PVEM", "PRD", "PANAL", "OTROS", "Ninguno"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
