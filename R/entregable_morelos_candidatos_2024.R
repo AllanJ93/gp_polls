@@ -64,7 +64,7 @@ bd_preparada <- bd_encuestas_raw |>
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Candidato MC", "OTRO"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Candidato MC", "OTRO", "Ninugno"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe"),
@@ -101,11 +101,15 @@ bd_puntos <- bd_preparada %>%
 
 ### Prefferencia bruta
 paste("Encuestas: ", bd_preparada %>% distinct(idIntencionVoto) %>% nrow(), sep = "")
-bd_preparada %>% count(candidato)
+bd_preparada %>% count(candidato, sort = T)
 bd_preparada %>% 
   group_by(idIntencionVoto) %>% 
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
+bd_preparada %>% 
+  group_by(idIntencionVoto) %>% 
+  summarise(suma_de_porcentaje = sum(resultado)) |> 
+  filter(suma_de_porcentaje != 100)
 bd_preparada %>% naniar::vis_miss()
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
