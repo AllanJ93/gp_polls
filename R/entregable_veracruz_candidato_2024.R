@@ -42,6 +42,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Veracru
 
 bd_preparada <- bd_encuestas_raw |> 
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
+  filter(lubridate::as_date("2023-11-01") <= fechaInicio) |> 
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -58,19 +59,19 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("Rocio Nahle", "Fernando Yunes") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("Rocio Nahle", "José Yunes") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Candidato MC"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Candidato MC", "Otro", "José Manuel del Rio Virgen", "Sergio Gil", "Candidato", "José Manuel del Rio"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
   mutate(colorHex = case_when(candidato == "Rocio Nahle" ~ color_sheinbaum,
-                              candidato == "Fernando Yunes" ~ color_pan,
+                              candidato == "José Yunes" ~ color_pan,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
@@ -120,6 +121,10 @@ bd_preparada %>%
   coord_flip() +
   theme_minimal() +
   labs(y = "Días de levantamiento", x = "Encuestas")
+bd_preparada |> 
+  distinct(fechaInicio) |> 
+  arrange(fechaInicio) |> 
+  print(n = Inf)
 
 # Cargar modelo y simulaciones -------------------------------------------- 
 
@@ -131,7 +136,7 @@ fecha_estimacion <- lubridate::today()
 
 modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato), fechaFin = fecha_estimacion)
 
-modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos)
+modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos, fecha_candidatos = F)
 
 # graficar_comparativa_ivoto(bd = mod_presidenciables_candidato[[1]])
 # 
@@ -151,7 +156,7 @@ tabla_encuestas <- bd_preparada %>%
   select(!c(idIntencionVoto, fecha)) %>%
   janitor::clean_names() %>%
   arrange(fecha_fin) %>% 
-  mutate(diferencia = rocio_nahle - fernando_yunes,
+  mutate(diferencia = rocio_nahle - jose_yunes,
          fecha_fin = format(fecha_fin, "%d-%b-%y"),
          numero_entrevistas = scales::comma(numero_entrevistas),
          error = as.double(error),
@@ -159,7 +164,7 @@ tabla_encuestas <- bd_preparada %>%
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia)) %>%
   relocate(casa_encuestadora,
            rocio_nahle,
-           fernando_yunes,
+           jose_yunes,
            diferencia,
            ns_nc,
            otro,
@@ -170,7 +175,7 @@ tabla_encuestas <- bd_preparada %>%
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
          "Rocío Nahle" = rocio_nahle,
-         "Fernando Yunes" = fernando_yunes,
+         "José Yunes" = jose_yunes,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
@@ -196,7 +201,7 @@ resultado_gppolls <- modelo_resultado[[1]] %>%
   pivot_wider(names_from = candidato, values_from = media) %>%
   janitor::clean_names() %>%
   mutate(across(where(is.numeric), ~ round(.x, digits = 0)),
-         diferencia = rocio_nahle - fernando_yunes,
+         diferencia = rocio_nahle - jose_yunes,
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = 1.)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia))
 
@@ -204,7 +209,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
   bind_cols(dummy_tb) %>%
   relocate(casa_encuestadora,
            rocio_nahle,
-           fernando_yunes,
+           jose_yunes,
            diferencia,
            ns_nc,
            otro,
@@ -215,7 +220,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
          "Rocío Nahle" = rocio_nahle,
-         "Fernando Yunes" = fernando_yunes,
+         "José Yunes" = jose_yunes,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
