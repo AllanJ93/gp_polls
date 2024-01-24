@@ -32,7 +32,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "CDMX", 
 
 bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por partido") |> 
-  filter(id != "RUBRUM_1") |> 
+  filter(id != "RUBRUM_3") |> 
   transmute(id, casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
             resultado = intencion_de_voto_por_partido_bruta,
@@ -42,7 +42,7 @@ bd_preparada <- bd_encuestas_raw |>
             error) |> 
   group_by(casa_encuestadora, fechaInicio, fechaFin, error, total_de_entrevistas, metodologia, careo) %>%
   mutate(idIntencionVoto = cur_group_id()) %>% 
-  ungroup() |> 
+  ungroup() |>
   group_by(idIntencionVoto) |> 
   mutate(trackeable = dplyr::if_else(condition = all(c("MORENA_PT_PVEM", "PAN_PRI_PRD", "MC") %in% candidato),
                                      true = T,
@@ -92,6 +92,10 @@ bd_preparada %>%
   group_by(idIntencionVoto) %>% 
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
+bd_preparada %>% 
+  group_by(idIntencionVoto) %>% 
+  summarise(suma_de_porcentaje = sum(resultado)) |> 
+  filter(suma_de_porcentaje != 100)
 bd_preparada %>% naniar::vis_miss()
 # bd_preparada %>% 
 #   count(metodologia, calidad) %>% 
