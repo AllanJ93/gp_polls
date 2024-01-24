@@ -43,6 +43,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Chiapas
 bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
   filter(lubridate::as_date("2023-07-01") < fechaInicio) |> 
+  filter(id != "MC_4") |> 
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -64,7 +65,8 @@ bd_preparada <- bd_encuestas_raw |>
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Ninguno", "María Elena Orantes", "Candidato MC", "Willy Ocha", "Noé Castañón"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Ninguno", "María Elena Orantes", "Candidato MC", "Otro", "Valeria Santiago Rojas",
+                                                                 "Carlos Palomeque", "Rubén Zuarth", "Noé Castañón", "Roberto Antonio Zuarth Esquinca", "Valeria Santiago"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe"),
@@ -72,7 +74,6 @@ bd_preparada <- bd_encuestas_raw |>
                                     false = candidato)) |> 
   mutate(colorHex = case_when(candidato == "Eduardo Ramírez Aguilar" ~ color_morena,
                               candidato == "Willy Ochoa" ~ color_pan,
-                              candidato == "María Elena Orantes" ~ color_mc,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
@@ -97,8 +98,6 @@ bd_puntos <- bd_preparada %>%
   left_join(bd_preparada %>% distinct(candidato, color = colorHex), by = c("candidato")) %>%
   left_join(bd_preparada %>% distinct(idIntencionVoto, calidad), by = "idIntencionVoto")
 
-bd_puntos
-
 # Pruebas -----------------------------------------------------------------
 
 ### Prefferencia bruta
@@ -108,6 +107,10 @@ bd_preparada %>%
   group_by(idIntencionVoto) %>% 
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
+bd_preparada %>% 
+  group_by(idIntencionVoto) %>% 
+  summarise(suma_de_porcentaje = sum(resultado)) |> 
+  filter(suma_de_porcentaje != 100)
 bd_preparada %>% naniar::vis_miss()
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
@@ -135,7 +138,7 @@ fecha_estimacion <- lubridate::today()
 
 modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato), fechaFin = fecha_estimacion)
 
-modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos)
+modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos, fecha_candidatos = F)
 
 # graficar_comparativa_ivoto(bd = mod_presidenciables_candidato[[1]])
 # 
