@@ -30,8 +30,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Chiapas
 
 # Preparar base -----------------------------------------------------------
 
-bd_preparada <- bd_encuestas_raw |>
-  filter(id != "RUBRUM_4") |> 
+bd_preparada <- bd_encuestas_raw |> 
   transmute(casa_encuestadora, fechaInicio, fechaFin, fechaPublicacion,
             numeroEntrevistas,
             resultado = as.double(intencion_de_voto_por_partido_bruta),
@@ -39,6 +38,8 @@ bd_preparada <- bd_encuestas_raw |>
             careo, metodologia, calidad,
             total_de_entrevistas = numeroEntrevistas,
             error) |> 
+  filter(!candidato == "NA") |> 
+  filter(!candidato == "PVEM") |> 
   group_by(casa_encuestadora, fechaInicio, fechaFin, error, total_de_entrevistas, metodologia, careo) %>%
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
@@ -243,9 +244,9 @@ library(flextable)
 
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
-add_slide(pptx, layout = "portada", master = "Tema de Office") %>%
+add_slide(pptx, layout = "1_portada", master = "Tema de Office") %>%
   ph_with(value = "ENCUESTAS CHIAPAS 2024", location = ph_location_label(ph_label = "titulo")) %>%
-  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "subtitulo"))
+  ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "fecha"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
   ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%
@@ -275,6 +276,6 @@ folder_path <- paste("Entregable/", dia_reporte, "/", sep = "")
 
 dir.create(folder_path)
 
-pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_chiapas_%d_%B"), ".pptx", sep = "")
+pptx_path <- paste(folder_path, format(lubridate::today(), "gppolls_chiapas_partidos_%d_%B"), ".pptx", sep = "")
 print(pptx, pptx_path)
 beepr::beep()
