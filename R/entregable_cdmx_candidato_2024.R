@@ -64,7 +64,7 @@ bd_preparada <- bd_encuestas_raw |>
                                      false = F)) |>
   ungroup() |>
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Adrián Rubalcava", "Otro", "Ninguno", "Independiente"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Adrián Rubalcava", "Otro", "Ninguno", "Independiente", "Candidato Independiente", "No Votaría"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No Sabe", "No sabe", "No sabe/No Respondió"),
@@ -108,6 +108,10 @@ bd_preparada %>%
   group_by(idIntencionVoto) %>% 
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
+bd_preparada %>% 
+  group_by(idIntencionVoto) %>% 
+  summarise(suma_de_porcentaje = sum(resultado)) |> 
+  filter(suma_de_porcentaje != 100)
 bd_preparada %>% 
   naniar::vis_miss()
 bd_preparada %>%
