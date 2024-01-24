@@ -40,7 +40,10 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Preside
 # Preparar base -----------------------------------------------------------
 
 bd_preparada <- bd_encuestas_raw |>
-  filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
+  filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |>
+  filter(lubridate::as_date("2023-11-01") <= fechaInicio) |>
+  filter(!id == "ENKOLL_000") |> 
+  filter(!id %in% c("RUBRUM_4", "ISA_2", "Gii_1")) |> 
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -56,32 +59,27 @@ bd_preparada <- bd_encuestas_raw |>
   group_by(id, casa_encuestadora, fechaInicio, fechaFin, error, numeroEntrevistas, metodologia, careo) %>%
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
+  filter(!idIntencionVoto %in% c(29, 92)) |> 
   group_by(idIntencionVoto) |> 
   mutate(trackeable = dplyr::if_else(condition = all(c("Claudia Sheinbaum", "Xóchitl Gálvez") %in% candidato),
                                     true = T,
                                     false = F)) |> 
   ungroup() |> 
-  filter(trackeable == T) |>
+  filter(trackeable == T) |> 
   mutate(candidato = dplyr::if_else(condition = candidato %in% c("Eduardo Verástegui", "Independiente", "Ninguno", "No irá a votar", "Es secreto", "Dante Delgado", "NE", "Beatriz Paredes", "Es secreto", 
-                                                                 "Ninugno", "Juan Zepeda", "Jorge Álvarez Maynez", "Marcelo Ebrard", "Candidato MC", "Samuel García"),
+                                                                 "Ninugno", "Juan Zepeda", "Jorge Álvarez Maynez", "Marcelo Ebrard", "Candidato MC", "Samuel García", "Ninguni"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
-  group_by(idIntencionVoto) |> 
-  mutate(tot_candidatos = n()) |> 
-  ungroup() |> 
-  filter(tot_candidatos == 5) |> 
   mutate(colorHex = case_when(candidato == "Claudia Sheinbaum" ~ color_sheinbaum,
                               candidato == "Xóchitl Gálvez" ~ color_pan,
-                              candidato == "Samuel García" ~ color_mc,
                               candidato == "Otro" ~ color_otro,
-                              candidato == "Ns/Nc" ~ color_nsnc)) |> 
+                              candidato == "Ns/Nc" ~ color_nsnc)) |>
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
-  filter(!is.na(resultado)) |> 
   group_by(id, casa_encuestadora, idIntencionVoto, fechaInicio, fechaFin, fechaPublicacion, candidato, metodologia, careo, calidad, numeroEntrevistas, error, colorHex) |> 
-  summarise(resultado = sum(resultado), .groups = "drop") |> 
+  summarise(resultado = sum(resultado), .groups = "drop") |>
   relocate(resultado, .before = candidato) |> 
   select(!careo) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
@@ -89,24 +87,7 @@ bd_preparada <- bd_encuestas_raw |>
                                       true = fechaInicio - lubridate::ddays(1),
                                       false = fechaInicio)) |> 
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
-  filter(!dias_levantamiento <= 0)
-
-bd_preparada |> distinct(idIntencionVoto)
-
-# bd_preparada <- bd_preparada |> 
-#   filter(idIntencionVoto %in% c(1, 10, 12, 15, 22, 23, 24, 28, 30, 31, 33, 41))
-  # filter(!idIntencionVoto %in% c(29, 34, 59, 61)) |> 
-  
-  
-# filter(!idIntencionVoto %in% c(21, 27, 36, 51, 56))
-  # filter(idIntencionVoto %in% c(1, 17, 18, 19, 26, 28, 31, 35, 39, 40, 59))
-
-bd_preparada |> 
-  distinct(idIntencionVoto)
-  
-bd_preparada |> 
-  group_by(idIntencionVoto) |> 
-  summarise(total = sum(resultado))
+  filter(!dias_levantamiento <= 0) 
 
 bd_puntos <- bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
@@ -127,6 +108,10 @@ bd_preparada %>%
   group_by(idIntencionVoto) %>% 
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
+bd_preparada %>% 
+  group_by(idIntencionVoto) %>% 
+  summarise(suma_de_porcentaje = sum(resultado)) %>%
+  filter(suma_de_porcentaje != 100)
 bd_preparada %>% naniar::vis_miss()
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
@@ -143,6 +128,15 @@ bd_preparada %>%
   coord_flip() +
   theme_minimal() +
   labs(y = "Días de levantamiento", x = "Encuestas")
+bd_preparada |> 
+  distinct(idIntencionVoto, fechaInicio) |> 
+  count(fechaInicio, sort = T) |> 
+  arrange(fechaInicio) |> 
+  print(n = Inf)
+bd_preparada |> 
+  distinct(idIntencionVoto, fechaInicio) |> 
+  count(fechaInicio, sort = T) |> 
+  print(n = Inf)
 
 # Cargar modelo y simulaciones -------------------------------------------- 
 
