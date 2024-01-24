@@ -58,20 +58,20 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("Claudia Delgadillo", "Alfonso Petersen", "Pablo Lemus") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("Claudia Delgadillo", "Pablo Lemus", "Laura Haro") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
   filter(trackeable == T) |> 
-  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Mara Robles"),
+  mutate(candidato = dplyr::if_else(condition = candidato %in% c("Mara Robles", "Otro", "Ninguno", "No Votaría"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe", "No sabe/No Respondió"),
                                     true = "Ns/Nc",
                                     false = candidato)) |> 
   mutate(colorHex = case_when(candidato == "Claudia Delgadillo" ~ color_sheinbaum,
-                              candidato == "Alfonso Petersen" ~ color_pan,
                               candidato == "Pablo Lemus" ~ color_mc,
+                              candidato == "Laura Haro" ~ color_pri,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
   relocate(idIntencionVoto, .after = casa_encuestadora) |> 
@@ -105,6 +105,10 @@ bd_preparada %>%
   group_by(idIntencionVoto) %>% 
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
+bd_preparada %>% 
+  group_by(idIntencionVoto) %>% 
+  summarise(suma_de_porcentaje = sum(resultado)) |> 
+  filter(suma_de_porcentaje != 100)
 bd_preparada %>% naniar::vis_miss()
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
@@ -132,7 +136,7 @@ fecha_estimacion <- lubridate::today()
 
 modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato), fechaFin = fecha_estimacion)
 
-modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos)
+modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos, fecha_candidatos = F)
 
 # graficar_comparativa_ivoto(bd = mod_presidenciables_candidato[[1]])
 # 
@@ -162,7 +166,7 @@ tabla_encuestas <- bd_preparada %>%
            claudia_delgadillo,
            pablo_lemus,
            diferencia,
-           alfonso_petersen,
+           laura_haro,
            ns_nc,
            otro,
            fecha_fin,
@@ -174,7 +178,7 @@ tabla_encuestas <- bd_preparada %>%
          "Claudia\nDelgadillo" = claudia_delgadillo,
          "Pablo\nLemus" = pablo_lemus,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Pablo\nPetersen" = alfonso_petersen,
+         "Laura\nHaro" = laura_haro,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
@@ -209,7 +213,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            claudia_delgadillo,
            pablo_lemus,
            diferencia,
-           alfonso_petersen,
+           laura_haro,
            ns_nc,
            otro,
            fecha_fin,
@@ -221,7 +225,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
          "Claudia\nDelgadillo" = claudia_delgadillo,
          "Pablo\nLemus" = pablo_lemus,
          "Diferencia\nventaja\n(puntos)" = diferencia,
-         "Pablo\nPetersen" = alfonso_petersen,
+         "Laura\nHaro" = laura_haro,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
