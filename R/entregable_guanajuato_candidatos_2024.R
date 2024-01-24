@@ -43,6 +43,7 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Guanaju
 bd_preparada <- bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |> 
   filter(lubridate::as_date("2023-07-01") < fechaInicio) |> 
+  filter(id != "Metrics_1") |> 
   select(id,
          casa_encuestadora,
          fechaInicio,
@@ -106,6 +107,10 @@ bd_preparada %>%
   group_by(idIntencionVoto) %>% 
   summarise(suma_de_porcentaje = sum(resultado)) %>%
   print(n = Inf)
+bd_preparada %>% 
+  group_by(idIntencionVoto) %>% 
+  summarise(suma_de_porcentaje = sum(resultado)) |> 
+  filter(suma_de_porcentaje != 100)
 bd_preparada %>% naniar::vis_miss()
 bd_preparada %>%
   distinct(fechaInicio, fechaFin, fechaPublicacion) %>%
