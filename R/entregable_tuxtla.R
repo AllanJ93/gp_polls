@@ -177,7 +177,7 @@ tabla_encuestas <- bd_preparada %>%
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
          "MORENA\nPVEM-PT" = morena_pvem_pt,
-         "PAN\nPRU-PRD" = pan_pri_prd,
+         "PAN\nPRI-PRD" = pan_pri_prd,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
@@ -222,7 +222,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            calidad) %>% 
   rename("Casa Encuestadora" = casa_encuestadora,
          "MORENA\nPVEM-PT" = morena_pvem_pt,
-         "PAN\nPRU-PRD" = pan_pri_prd,
+         "PAN\nPRI-PRD" = pan_pri_prd,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Ns/Nc" = ns_nc,
          "Otro" = otro,
