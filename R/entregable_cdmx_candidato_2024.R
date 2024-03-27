@@ -7,6 +7,8 @@ library(rjags)
 library(officer)
 library(flextable)
 
+Sys.setlocale(locale = "es_ES.UTF-8")
+
 source(file = "R/parametros.R")
 source(file = "R/funciones.R")
 
