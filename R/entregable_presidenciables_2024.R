@@ -7,6 +7,8 @@ library(rjags)
 library(officer)
 library(flextable)
 
+Sys.setlocale(locale = "es_ES.UTF-8")
+
 source(file = "R/parametros.R")
 source(file = "R/funciones.R")
 
@@ -14,9 +16,10 @@ source(file = "R/funciones.R")
 
 id_bd_gppolls <- "https://docs.google.com/spreadsheets/d/1M4ifUkX3ULaYoc0gdM2PDC6oEAjUPFAdikTU_jhePFs/edit#gid=0"
 dir_bd_gppolls <-  "Insumos/bd_gppolls.xlsx"
-archivo_xlsx <- googledrive::drive_download(googledrive::as_id(id_bd_gppolls), path = dir_bd_gppolls, overwrite = TRUE)
+googledrive::drive_download(googledrive::as_id(id_bd_gppolls), path = dir_bd_gppolls, overwrite = TRUE)
 2
-bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Presidencia", cols = seq.int(1:17)) |> 
+bd_encuestas_raw <- 
+  openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Presidencia", cols = seq.int(1:17)) |> 
   as_tibble(.name_repair = "unique") |> 
   janitor::clean_names() |> 
   transmute(id,
@@ -39,9 +42,10 @@ bd_encuestas_raw <- openxlsx2::read_xlsx(file = dir_bd_gppolls, sheet = "Preside
 
 # Preparar base -----------------------------------------------------------
 
-bd_preparada <- bd_encuestas_raw |>
+bd_preparada <- 
+  bd_encuestas_raw |>
   filter(tipo_de_pregunta == "Intención de voto por candidato-alianza") |>
-  filter(lubridate::as_date("2023-11-01") <= fechaInicio) |>
+  filter(lubridate::as_date("2024-02-01") <= fechaInicio) |>
   filter(!id == "ENKOLL_000") |> 
   filter(!id %in% c("RUBRUM_4", "ISA_2", "Gii_1")) |> 
   select(id,
@@ -89,7 +93,8 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(dias_levantamiento = as.numeric(fechaFin - fechaInicio)) %>%
   filter(!dias_levantamiento <= 0) 
 
-bd_puntos <- bd_preparada %>%
+bd_puntos <- 
+  bd_preparada %>%
   select(idIntencionVoto, fecha = fechaFin, resultado, candidato) %>%
   pivot_wider(id_cols = c(idIntencionVoto, fecha), names_from = candidato, values_from = resultado) %>%
   mutate(across(.cols = !c(idIntencionVoto, fecha), .fns = ~ dplyr::if_else(condition = is.na(.x) ,
@@ -148,7 +153,7 @@ fecha_estimacion <- lubridate::today()
 
 modelo_resultado <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato), fechaFin = fecha_estimacion)
 
-modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos)
+modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_puntos, fecha_candidatos = F)
 
 # graficar_comparativa_ivoto(bd = mod_presidenciables_candidato[[1]])
 # 
@@ -156,7 +161,8 @@ modelo_graf <- graficar_modelo(modelo = modelo_resultado[[1]], bd_puntos = bd_pu
 # 
 # prob_triunfo_graf <- graficar_prob_triunfo(bd = bd_prob_triunfo)
 
-tabla_encuestas <- bd_preparada %>% 
+tabla_encuestas <- 
+  bd_preparada %>% 
   select(casa_encuestadora, idIntencionVoto) %>%
   distinct() %>%
   left_join(bd_puntos %>% 
@@ -199,14 +205,16 @@ tabla_encuestas <- bd_preparada %>%
          "Tipo de\nlevantamiento" = metodologia,
          "Calidad" = calidad)
 
-dummy_tb <- tibble(casa_encuestadora = "RESULTADO GPPOLLS",
+dummy_tb <- 
+  tibble(casa_encuestadora = "RESULTADO GPPOLLS",
                    fecha_fin = "",
                    metodologia = "",
                    calidad = "",
                    numero_entrevistas = "",
                    error = "")
 
-resultado_gppolls <- modelo_resultado[[1]] %>%
+resultado_gppolls <- 
+  modelo_resultado[[1]] %>%
   filter(fecha == fecha_estimacion) %>%
   mutate(across(c(media, ic_025, ic_975), ~.x*100),
          across(c(media, ic_025, ic_975), ~round(.x), .names = "{.col}tt"),
@@ -219,7 +227,8 @@ resultado_gppolls <- modelo_resultado[[1]] %>%
          across(where(is.numeric), ~ scales::percent(.x/100, accuracy = 1.)),
          diferencia = gsub(pattern = "%", replacement = "", x = diferencia))
 
-tabla_resultadoGppolls <- resultado_gppolls %>%
+tabla_resultadoGppolls <- 
+  resultado_gppolls %>%
   bind_cols(dummy_tb) %>%
   relocate(casa_encuestadora,
            claudia_sheinbaum,
@@ -246,20 +255,34 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
          "Tipo de\nlevantamiento" = metodologia,
          "Calidad" = calidad)
 
-tabla_completa <- tabla_encuestas |> 
+tabla_completa <- 
+  tabla_encuestas |> 
   bind_rows(tabla_resultadoGppolls) |> 
   select(!Calidad) |> 
   tibble::rownames_to_column(var = "N°") %>%
   mutate(`N°` = case_when(`Casa Encuestadora` == "RESULTADO GPPOLLS" ~ "", T ~ `N°`))
 
+# Probabilidad de triunfo ---------------------------------------------------------------------
+
+modelo_resultado_elecciones <- modelo_bayesiano(bd = bd_preparada %>% rename(partido = candidato), fechaFin = lubridate::as_date("2024-06-02"))
+
+bd_triunfo <- 
+  obtener_prob_triunfo(modelo_resultados = modelo_resultado_elecciones[[2]] |> 
+                         filter(!candidato %in% c("Otro", "Ns/Nc")), fecha = lubridate::as_date("2024-06-02"))
+
+prob_triunfo_graf <- 
+  graficar_prob_triunfo(bd = bd_triunfo)
+
 # Preparar anexos ---------------------------------------------------------
 
-tabla_completa_anexos <- tibble::tibble(tabla_completa) %>%
+tabla_completa_anexos <- 
+  tibble::tibble(tabla_completa) %>%
   tibble::rownames_to_column(var = "id") %>%
   mutate(sep = ((as.numeric(id) -1) %/% 10) + 1) %>%
   split(.$sep)
 
-tot_encuestas <- bd_preparada %>% 
+tot_encuestas <- 
+  bd_preparada %>% 
   distinct(idIntencionVoto) |> 
   nrow()
 
@@ -270,13 +293,18 @@ ultima_encuesta <- bd_preparada %>% select(fechaFin) %>% pull() %>% max()
 pptx <- read_pptx("Insumos/plantilla_gpp.pptx")
 
 add_slide(pptx, layout = "1_portada", master = "Tema de Office") %>%
-  ph_with(value = "ENCUESTAS CHIAPAS 2024", location = ph_location_label(ph_label = "titulo")) %>%
+  ph_with(value = "ENCUESTAS PRESIDENCIA DE LA REPÚBLICA 2024", location = ph_location_label(ph_label = "titulo")) %>%
   ph_with(value = stringr::str_to_upper(format(lubridate::today(), "%A %d de %B de %Y")), location = ph_location_label(ph_label = "fecha"))
 
 add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
   ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%
   ph_with(value = paste("Última encuesta: ", format(x = ultima_encuesta, "%d de %B %Y")), location = ph_location_label(ph_label = "subtitulo")) %>%
   ph_with(value = modelo_graf, location = ph_location_label(ph_label = "imagen_principal"))
+
+add_slide(pptx, layout = "modelo", master = "Tema de Office") %>%
+  ph_with(value = paste("Análisis general: ", tot_encuestas, " encuestas", sep = ""), location = ph_location_label(ph_label = "titulo")) %>%
+  ph_with(value = paste("Última encuesta: ", format(x = ultima_encuesta, "%d de %B %Y")), location = ph_location_label(ph_label = "subtitulo")) %>%
+  ph_with(value = prob_triunfo_graf, location = ph_location_label(ph_label = "imagen_principal"))
 
 tabla_completa_anexos %>%
   purrr::walk( ~ add_slide(pptx, layout = "anexos", master = "Tema de Office") %>%
