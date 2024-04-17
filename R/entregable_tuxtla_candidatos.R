@@ -63,7 +63,7 @@ bd_preparada <- bd_encuestas_raw |>
   mutate(idIntencionVoto = cur_group_id()) %>% 
   ungroup() |> 
   group_by(idIntencionVoto) |> 
-  mutate(trackeable = dplyr::if_else(condition = all(c("Aquiles Espinosa", "Felipe Granda", "María Mandiola", "Ángel Torres") %in% candidato),
+  mutate(trackeable = dplyr::if_else(condition = all(c("Aquiles Espinosa", "Felipe Granda", "Ángel Torres") %in% candidato),
                                      true = T,
                                      false = F)) |> 
   ungroup() |> 
@@ -72,7 +72,7 @@ bd_preparada <- bd_encuestas_raw |>
                                                                  "Salvador Constanzo", "Marcela Castillo",
                                                                  "Marcelo Toledo", "Roberto Albores", "Rómulo Farrera", 
                                                                  "Salvatore Costanzo", "Sasil de León", 
-                                                                 "Salvatore Constanzo"),
+                                                                 "Salvatore Constanzo", "María Mandiola"),
                                     true = "Otro",
                                     false = candidato),
          candidato = dplyr::if_else(condition = candidato %in% c("No sabe/No Respondió"),
@@ -80,7 +80,7 @@ bd_preparada <- bd_encuestas_raw |>
                                     false = candidato)) |> 
   mutate(colorHex = case_when(candidato == "Aquiles Espinosa" ~ color_morena,
                               candidato == "Felipe Granda" ~ color_pan,
-                              candidato == "María Mandiola" ~ color_mc,
+                              # candidato == "María Mandiola" ~ color_mc,
                               candidato == "Ángel Torres" ~ color_pes,
                               candidato == "Otro" ~ color_otro,
                               candidato == "Ns/Nc" ~ color_nsnc)) |> 
@@ -171,7 +171,7 @@ tabla_encuestas <- bd_preparada %>%
            angel_torres,
            diferencia,
            felipe_granda,
-           maria_mandiola,
+           # maria_mandiola,
            ns_nc,
            # otro,
            fecha_fin,
@@ -184,7 +184,7 @@ tabla_encuestas <- bd_preparada %>%
          "Ángel\nTorres" = angel_torres,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Felipe Granda" = felipe_granda,
-         "Maria Mandioa" = maria_mandiola,
+         # "Maria Mandiola" = maria_mandiola,
          "Ns/Nc" = ns_nc,
          # "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,
@@ -220,7 +220,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
            angel_torres,
            diferencia,
            felipe_granda,
-           maria_mandiola,
+           # maria_mandiola,
            ns_nc,
            # otro,
            fecha_fin,
@@ -233,7 +233,7 @@ tabla_resultadoGppolls <- resultado_gppolls %>%
          "Ángel\nTorres" = angel_torres,
          "Diferencia\nventaja\n(puntos)" = diferencia,
          "Felipe Granda" = felipe_granda,
-         "Maria Mandioa" = maria_mandiola,
+         # "Maria Mandiola" = maria_mandiola,
          "Ns/Nc" = ns_nc,
          # "Otro" = otro,
          "Fecha de\ntérmino" = fecha_fin,

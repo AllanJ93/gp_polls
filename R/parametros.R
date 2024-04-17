@@ -1,5 +1,7 @@
 # Generales ---------------------------------------------------------------
 
+Sys.setlocale(locale = "es_ES.UTF-8")
+
 color_general <- "#CF6177"
 
 color_si <- "#709775"
@@ -26,3 +28,5 @@ color_sheinbaum <-"#A6032F"
 color_marcelo <-"#f2542d"
 color_xochil <- color_pan
 color_samuel <-"#f2542d"
+
+color_pasnsnc <- "#4DA0DB"

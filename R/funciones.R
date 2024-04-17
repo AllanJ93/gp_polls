@@ -35,7 +35,7 @@ graficar_modelo = function(modelo, bd_puntos, fecha_estimacion = lubridate::toda
     scale_y_continuous(labels = function(x) paste0(x,"%"), 
                        expand = expansion(add = c(1, 0))) +
     labs(x = NULL, y = "Intención de voto") +
-    # scale_x_date(expand = expansion(add = c(0, 10))) +
+    scale_x_date(expand = expansion(add = c(0, 15))) +
     theme(text = element_text(family = "Poppins", size = 12),
           plot.title.position = "plot",
           axis.title.y.right = element_text(family =  "Poppins", size = 12),
@@ -110,7 +110,7 @@ graficar_prob_triunfo <- function(bd) {
     scale_fill_identity() +
     scale_y_continuous(labels = scales::percent) +
     coord_flip() +
-    labs(x = NULL, y =  NULL, title = "Pronóstico de probabilidad de triunfo\nel 4 de junio") +
+    labs(x = NULL, y =  NULL, title = "Pronóstico de probabilidad de triunfo\nel 2 de junio") +
     theme_minimal()
   
   return(g)
